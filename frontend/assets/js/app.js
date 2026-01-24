@@ -5,6 +5,18 @@ import { loadComponent } from "./helper.js";
 // CONFIGURATION & CONSTANTS
 // ==========================================
 
+// --- 1. NETWORK CONFIGURATION (FIX 404) ---
+const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// URL Backend Cloudflare (Tanpa https:// dan tanpa slash akhir)
+const PROD_HOST = 'outdoors-essence-cream-belts.trycloudflare.com';
+const LOCAL_HOST = 'localhost:8080';
+
+// URL HTTP API (untuk fetch SSID, dll)
+const PROD_API_URL = `https://${PROD_HOST}`;
+const LOCAL_API_URL = `http://${LOCAL_HOST}`;
+const API_BASE_URL = IS_LOCALHOST ? LOCAL_API_URL : PROD_API_URL;
+
 // WebSocket Message Types (Backend Protocol)
 const WS_TYPE = {
     START_SHARING: 3,
@@ -92,7 +104,9 @@ async function initializeApp() {
 // Fetch current network SSID from backend API
 async function fetchNetworkSSID() {
     try {
-        const response = await fetch('/api/v1/network/ssid');
+        // --- FIX: Gunakan API_BASE_URL agar tidak 404 di Vercel ---
+        const response = await fetch(`${API_BASE_URL}/api/v1/network/ssid`);
+
         if (!response.ok) throw new Error('Failed to fetch SSID');
 
         const result = await response.json();
@@ -141,7 +155,7 @@ function highlightActiveNav() {
 // ==========================================
 
 function connectToSignalingServer(token) {
-    // 1. Prevent multiple connections (Cek Duplicate)
+    // 1. Prevent multiple connections
     if (signalingSocket && (signalingSocket.readyState === WebSocket.OPEN || signalingSocket.readyState === WebSocket.CONNECTING)) {
         return;
     }
@@ -150,18 +164,10 @@ function connectToSignalingServer(token) {
     // DYNAMIC WEBSOCKET CONFIGURATION
     // ==========================================
 
-    // Cek apakah frontend dibuka di localhost?
-    const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
     // 1. Tentukan Protocol (WS untuk local HTTP, WSS untuk HTTPS/Cloudflare)
-    // Cloudflare Tunnel itu HTTPS, jadi WAJIB pakai wss://
     const protocol = (window.location.protocol === 'https:' || !IS_LOCALHOST) ? 'wss:' : 'ws:';
 
-    // 2. Tentukan Host Backend
-    // PROD_HOST = URL Cloudflare Tunnel TANPA 'https://'
-    const PROD_HOST = 'outdoors-essence-cream-belts.trycloudflare.com';
-    const LOCAL_HOST = 'localhost:8080';
-
+    // 2. Tentukan Host Backend (Ambil dari konstanta Global di atas)
     const host = IS_LOCALHOST ? LOCAL_HOST : PROD_HOST;
 
     const wsUrl = `${protocol}//${host}/api/v1/protected/ws?token=${token}`;
@@ -321,11 +327,11 @@ function handleSignalingMessage(msg) {
                     isInitiator = false;
                 }
             } else {
-                 // Fallback Legacy (Jika tidak ada ID di paket)
-                 const myPubKey = localStorage.getItem('gdrop_public_key');
-                 const msgSender = msg.data.sender_public_key || msg.data.sender_id;
-                 if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
-                 else isInitiator = (fileQueue.length > 0);
+                // Fallback Legacy (Jika tidak ada ID di paket)
+                const myPubKey = localStorage.getItem('gdrop_public_key');
+                const msgSender = msg.data.sender_public_key || msg.data.sender_id;
+                if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
+                else isInitiator = (fileQueue.length > 0);
             }
 
             // Siapkan antrian file & UI
@@ -688,10 +694,10 @@ function handleIncomingData(data) {
             const statusEl = document.getElementById('transfer-status-text');
             if(statusEl) statusEl.textContent = `Received ${receivedFileCount} files`;
 
-             // Jika kita punya info total file dari START_TRANSACTION, kita bisa show complete UI
+            // Jika kita punya info total file dari START_TRANSACTION, kita bisa show complete UI
             if (fileQueue.length > 0 && receivedFileCount >= fileQueue.length) {
                 console.log("[Receiver] All files received.");
-                 if (statusEl) statusEl.textContent = "ALL RECEIVED";
+                if (statusEl) statusEl.textContent = "ALL RECEIVED";
                 if(window.showTransferCompleteUI) setTimeout(() => window.showTransferCompleteUI(), 1000);
             }
         }
