@@ -34,11 +34,8 @@ export async function generateKeyPair() {
             true, // extractable
             ["sign", "verify"]
         );
-        console.log('[Auth] Key pair generated successfully');
-        console.log('Key Pair:', keyPair);
         return keyPair;
     } catch (error) {
-        console.error('[Auth] Failed to generate key pair:', error);
         throw error;
     }
 }
@@ -48,7 +45,6 @@ export async function savePrivateKey(keyPair) {
     const privateKeyBuffer = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
     const privateKeyBase64 = bufferToBase64(privateKeyBuffer);
     localStorage.setItem('gdrop_private_key', privateKeyBase64);
-    console.log('[Auth] Private key stored in localStorage');
 }
 
 export async function importPrivateKey() {
@@ -105,6 +101,5 @@ export async function loadComponent(elementId, componentPath) {
         if (!response.ok) throw new Error(`Failed to load ${fullPath}`);
         container.innerHTML = await response.text();
     } catch (error) {
-        console.error('Error loading component:', error);
     }
 }

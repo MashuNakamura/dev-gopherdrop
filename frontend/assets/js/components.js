@@ -12,7 +12,6 @@ let currentPage = 1;
 function updateDeviceListFromBackend(backendUsers) {
 
     if (!backendUsers || !Array.isArray(backendUsers)) {
-        console.warn('Invalid device list from backend', backendUsers);
         return;
     }
 
@@ -324,7 +323,6 @@ function proceedWithGroupCreation(name, selectedDevices) {
         };
         window.addGroupToStorage(newGroup);
         sessionStorage.setItem('gdrop_current_group_id', groupId);
-        console.log('[Groups] Saved new group to localStorage:', newGroup.name);
     }
     // ================================================
 
@@ -543,7 +541,6 @@ async function loadTransferProgressView() {
     if (overlay) return overlay;
 
     try {
-        console.log("[UI] Loading transfer progress view...");
         const response = await fetch('pages/transfer-progress.html');
         if (!response.ok) throw new Error("Failed to load transfer page");
 
@@ -573,7 +570,6 @@ async function loadTransferProgressView() {
 
         return overlay;
     } catch (e) {
-        console.error("[UI] Error loading transfer view:", e);
         return null;
     }
 }
@@ -778,9 +774,7 @@ function endTransferSession() {
     // Clear saved files from IndexedDB since transfer is complete/cancelled
     if (window.clearFilesFromDB) {
         window.clearFilesFromDB().then(() => {
-            console.log("[UI] Cleared saved files from IndexedDB");
         }).catch(err => {
-            console.error("[UI] Failed to clear IndexedDB:", err);
         });
     }
 
@@ -801,13 +795,11 @@ function endTransferSession() {
 // Menangani klik tombol "Select Files" dengan aman (Anti-Gagal)
 document.addEventListener('click', function (e) {
     if (e.target && (e.target.id === 'select-files-btn' || e.target.closest('#select-files-btn'))) {
-        console.log("[UI] Select Files button clicked.");
 
         let input = document.getElementById('file-upload-input');
 
         // SAFETY NET: Jika input hilang dari DOM (karena re-render), buat baru secara manual
         if (!input) {
-            console.warn("[UI] Input element missing. Creating manually...");
             input = document.createElement('input');
             input.type = 'file';
             input.id = 'file-upload-input';
@@ -838,14 +830,12 @@ document.addEventListener('change', function (e) {
 
 // 3. Init Drag & Drop (Polling elemen dinamis)
 function initFileUpload() {
-    console.log("[UI] Initializing Drag & Drop...");
 
     // Cek elemen tiap detik sampai ketemu
     const checkInterval = setInterval(() => {
         const dropZone = document.getElementById('upload-zone');
 
         if (dropZone) {
-            console.log("[UI] Drop Zone found. Listeners attached.");
             clearInterval(checkInterval);
 
             dropZone.ondragover = (e) => {
@@ -867,7 +857,6 @@ function initFileUpload() {
 
 // 4. Central File Handler
 function handleFiles(files) {
-    console.log("[UI] Processing files:", files);
 
     // Kirim ke App.js
     if (window.handleFilesSelected) {
@@ -876,9 +865,7 @@ function handleFiles(files) {
         // Save to IndexedDB for persistence
         if (window.saveFilesToDB) {
             window.saveFilesToDB(Array.from(files)).then(() => {
-                console.log("[UI] Files saved to IndexedDB for persistence");
             }).catch(err => {
-                console.error("[UI] Failed to save files to IndexedDB:", err);
             });
         }
 
@@ -896,21 +883,18 @@ function handleFiles(files) {
         if (descEl) descEl.textContent = "Click 'Create Group' above to send.";
 
     } else {
-        console.error("[UI] Error: App.js not ready (handleFilesSelected missing)");
     }
 }
 
 // 5. Load Saved Files on Page Load
 async function loadSavedFiles() {
     if (!window.loadFilesFromDB) {
-        console.log("[UI] IndexedDB not available, skipping file restore");
         return;
     }
 
     try {
         const savedFiles = await window.loadFilesFromDB();
         if (savedFiles && savedFiles.length > 0) {
-            console.log("[UI] Restoring", savedFiles.length, "files from IndexedDB");
 
             // Restore to App.js
             if (window.handleFilesSelected) {
@@ -932,7 +916,6 @@ async function loadSavedFiles() {
             }
         }
     } catch (error) {
-        console.error("[UI] Error loading saved files:", error);
     }
 }
 
@@ -970,7 +953,6 @@ async function loadTransferCompleteView() {
     if (overlay) return overlay;
 
     try {
-        console.log("[UI] Loading transfer complete view...");
         const response = await fetch('pages/transfer-complete.html');
         if (!response.ok) throw new Error("Failed to load complete page");
 
@@ -1010,7 +992,6 @@ async function loadTransferCompleteView() {
 
         return overlay;
     } catch (e) {
-        console.error("[UI] Error loading complete view:", e);
         return null;
     }
 }

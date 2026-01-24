@@ -32,7 +32,6 @@ function loadTransferData() {
         
         renderUI();
     } catch (e) {
-        console.error('Error loading transfer data:', e);
     }
 }
 

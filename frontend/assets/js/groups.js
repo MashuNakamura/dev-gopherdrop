@@ -18,7 +18,6 @@ function loadGroupsFromStorage() {
         const data = localStorage.getItem(GROUPS_STORAGE_KEY);
         return data ? JSON.parse(data) : [];
     } catch (e) {
-        console.error('[Groups] Error loading from storage:', e);
         return [];
     }
 }
@@ -28,7 +27,6 @@ function saveGroupsToStorage(groups) {
         localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(groups));
         return true;
     } catch (e) {
-        console.error('[Groups] Error saving to storage:', e);
         return false;
     }
 }

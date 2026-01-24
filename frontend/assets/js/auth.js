@@ -24,8 +24,6 @@ const LOCAL_API_URL = 'http://localhost:8080/api/v1';
 // 3. Pilih URL otomatis
 const API_BASE = IS_LOCALHOST ? LOCAL_API_URL : PROD_API_URL;
 
-console.log(`[Auth] Running on ${IS_LOCALHOST ? 'Localhost' : 'Production'}. API: ${API_BASE}`);
-
 const ENDPOINTS = {
     REGISTER: `${API_BASE}/register`,
     CHALLENGE: `${API_BASE}/challenge`,
@@ -159,12 +157,10 @@ export async function initAuth() {
             } else {
                 // If the server doesn't recognize us (DB reset?), clear creds and re-register
                 if (loginData.message === "User not found") {
-                    console.warn('[Auth] User not found on server. Clearing credentials and re-registering...');
                     localStorage.clear()
                     return await initAuth();
                 }
                 if (loginData.message === "Authentication failed") {
-                    console.warn('[Auth] Auth failed (Key mismatch?). Clearing credentials and re-registering...');
                     localStorage.clear()
                     return await initAuth();
                 }
@@ -173,7 +169,6 @@ export async function initAuth() {
         }
     } catch (error) {
         alert("System Error: " + error.message);
-        console.error('[Auth] Error:', error);
         return { success: false, error: error.message };
     }
 };

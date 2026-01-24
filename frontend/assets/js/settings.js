@@ -101,7 +101,6 @@ window.saveConfiguration = async function (isRetry = false) {
 
             // Handle Token Expired (401)
             if (response.status === 401 && !isRetry) {
-                console.warn('[Settings] Token Invalid (401). Refreshing...');
                 localStorage.removeItem('gdrop_token');
                 const newToken = await initAuth();
                 if (!newToken) throw new Error("Re-auth failed.");
@@ -129,7 +128,6 @@ window.saveConfiguration = async function (isRetry = false) {
         }
 
     } catch (error) {
-        console.error('[Settings] Save Error:', error);
         if (window.showToast) window.showToast('Failed to sync: ' + error.message, 'error');
 
         // Re-enable button on error to allow retry
@@ -194,7 +192,6 @@ window.exportBackup = function () {
         if (window.showToast) window.showToast('Backup downloaded successfully!', 'success');
 
     } catch (e) {
-        console.error("Backup failed:", e);
         if (window.showToast) window.showToast('Failed to create backup', 'error');
     }
 };
@@ -296,7 +293,6 @@ window.handleImportFile = function (input) {
             });
 
         } catch (err) {
-            console.error("Import failed:", err);
             if (window.showToast) window.showToast('Failed: Invalid backup file', 'error');
             input.value = '';
         }
