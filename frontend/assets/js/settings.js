@@ -138,7 +138,7 @@ window.saveConfiguration = async function (isRetry = false) {
 
         if (token) {
             // === FIX: GUNAKAN API_BASE KONSTANTA (BUKAN WINDOW.LOCATION) ===
-            const apiUrl = `${API_BASE}/user/profile`;
+            const apiUrl = `${API_BASE}/protected/user`;
 
             // === FIX: TAMBAHKAN HEADER NGROK ===
             const response = await fetch(apiUrl, {
