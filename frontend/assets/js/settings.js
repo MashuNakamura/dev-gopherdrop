@@ -137,18 +137,18 @@ window.saveConfiguration = async function (isRetry = false) {
         if (!token) token = await initAuth();
 
         if (token) {
-            // === FIX: GUNAKAN API_BASE KONSTANTA (BUKAN WINDOW.LOCATION) ===
             const apiUrl = `${API_BASE}/protected/user`;
 
             // === FIX: TAMBAHKAN HEADER NGROK ===
             const response = await fetch(apiUrl, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'ngrok-skip-browser-warning': 'true' // <--- WAJIB
+                    'ngrok-skip-browser-warning': 'true'
                 },
-                body: JSON.stringify({username: deviceName})
+                body: JSON.stringify({ username: deviceName })
             });
 
             // Handle Token Expired (401)
