@@ -220,6 +220,7 @@ func (s *Server) SetupAllEndPoint() {
 	protected := api_pub.Group("/protected", jwtware.New(jwtware.Config{
 		SigningKey:  jwtware.SigningKey{Key: []byte(s.Pass)},
 		TokenLookup: "header:Authorization,query:token",
+		AuthScheme:  "Bearer",
 	}))
 
 	// GET: /
