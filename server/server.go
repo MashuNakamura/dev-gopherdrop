@@ -73,13 +73,20 @@ func InitServer(url string, password string) *Server {
 		AppName: "GopherDrop Backend Ow0",
 	})
 
-	// === FIX CORS DI SINI ===
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		// TAMBAHKAN 'ngrok-skip-browser-warning' DI SINI vvv
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, Upgrade, Connection, ngrok-skip-browser-warning",
-		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowOriginsFunc: func(origin string) bool {
+			return origin == "https://dev-gopherdrop.vercel.app" ||
+				origin == "http://localhost:3000" ||
+				origin == "http://localhost:5173"
+		},
+		AllowCredentials: true,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Upgrade, Connection, ngrok-skip-browser-warning",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 	}))
+
+	app.Options("/*", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
 
 	return &Server{
 		App:          app,
