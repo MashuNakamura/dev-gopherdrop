@@ -72,9 +72,12 @@ func InitServer(url string, password string) *Server {
 	app := fiber.New(fiber.Config{
 		AppName: "GopherDrop Backend Ow0",
 	})
+
+	// === FIX CORS DI SINI ===
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",                                                                // Fase dev/awal: Allow All. Nanti di production bisa diganti domain vercel spesifik.
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, Upgrade, Connection", // Tambah Upgrade/Connection jaga-jaga
+		AllowOrigins: "*",
+		// TAMBAHKAN 'ngrok-skip-browser-warning' DI SINI vvv
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, Upgrade, Connection, ngrok-skip-browser-warning",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
 
