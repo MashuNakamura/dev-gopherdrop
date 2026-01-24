@@ -142,7 +142,6 @@ window.saveConfiguration = async function (isRetry = false) {
             // === FIX: TAMBAHKAN HEADER NGROK ===
             const response = await fetch(apiUrl, {
                 method: 'POST',
-                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
