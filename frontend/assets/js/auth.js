@@ -17,8 +17,8 @@ const STORAGE_KEYS = {
 // 1. Cek apakah kita sedang di Localhost?
 const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// 2. URL Cloudflare Tunnel (Backend di Laptop Mas)
-const PROD_API_URL = 'https://outdoors-essence-cream-belts.trycloudflare.com/api/v1';
+// 2. URL NGROK STATIC (Update ke domain paten mas)
+const PROD_API_URL = 'https://ahmad-heliochromic-astoundedly.ngrok-free.dev/api/v1';
 const LOCAL_API_URL = 'http://localhost:8080/api/v1';
 
 // 3. Pilih URL otomatis
@@ -92,9 +92,13 @@ export async function initAuth() {
 
             await initDeviceID();
 
+            // === [UPDATE] Register dengan Header Ngrok ===
             const response = await fetch(ENDPOINTS.REGISTER, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true' // <--- PENTING
+                },
                 body: JSON.stringify({
                     username: getDeviceName(),
                     public_key: publicKeyBase64
@@ -116,9 +120,15 @@ export async function initAuth() {
             }
 
             // 1. Get Challenge from server
-            const challengeRes = await fetch(ENDPOINTS.CHALLENGE);
+            // === [UPDATE] Challenge dengan Header Ngrok ===
+            const challengeRes = await fetch(ENDPOINTS.CHALLENGE, {
+                headers: {
+                    'ngrok-skip-browser-warning': 'true' // <--- PENTING
+                }
+            });
+
             if (!challengeRes.ok) throw new Error('Gagal konek ke Laptop (Challenge)');
-            
+
             const challengeData = await challengeRes.json();
             const challengeBase64 = challengeData.data;
 
@@ -127,9 +137,13 @@ export async function initAuth() {
             const signature = await signChallenge(challengeBase64, importedKey);
 
             // 3. Send login request
+            // === [UPDATE] Login dengan Header Ngrok ===
             const loginRes = await fetch(ENDPOINTS.LOGIN, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true' // <--- PENTING
+                },
                 body: JSON.stringify({
                     public_key: publicKey,
                     challenge: challengeBase64,

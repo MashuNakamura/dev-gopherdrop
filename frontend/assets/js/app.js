@@ -5,11 +5,11 @@ import { loadComponent } from "./helper.js";
 // CONFIGURATION & CONSTANTS
 // ==========================================
 
-// --- 1. NETWORK CONFIGURATION (FIX 404) ---
+// --- 1. NETWORK CONFIGURATION (NGROK STATIC) ---
 const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// URL Backend Cloudflare (Tanpa https:// dan tanpa slash akhir)
-const PROD_HOST = 'outdoors-essence-cream-belts.trycloudflare.com';
+// URL Backend Ngrok Static (Tanpa https:// dan tanpa slash akhir)
+const PROD_HOST = 'ahmad-heliochromic-astoundedly.ngrok-free.dev';
 const LOCAL_HOST = 'localhost:8080';
 
 // URL HTTP API (untuk fetch SSID, dll)
@@ -104,8 +104,12 @@ async function initializeApp() {
 // Fetch current network SSID from backend API
 async function fetchNetworkSSID() {
     try {
-        // --- FIX: Gunakan API_BASE_URL agar tidak 404 di Vercel ---
-        const response = await fetch(`${API_BASE_URL}/api/v1/network/ssid`);
+        // --- FIX: Gunakan API_BASE_URL & Tambah Header Ngrok ---
+        const response = await fetch(`${API_BASE_URL}/api/v1/network/ssid`, {
+            headers: {
+                "ngrok-skip-browser-warning": "true"
+            }
+        });
 
         if (!response.ok) throw new Error('Failed to fetch SSID');
 
@@ -164,7 +168,7 @@ function connectToSignalingServer(token) {
     // DYNAMIC WEBSOCKET CONFIGURATION
     // ==========================================
 
-    // 1. Tentukan Protocol (WS untuk local HTTP, WSS untuk HTTPS/Cloudflare)
+    // 1. Tentukan Protocol (WS untuk local HTTP, WSS untuk HTTPS/Cloudflare/Ngrok)
     const protocol = (window.location.protocol === 'https:' || !IS_LOCALHOST) ? 'wss:' : 'ws:';
 
     // 2. Tentukan Host Backend (Ambil dari konstanta Global di atas)
