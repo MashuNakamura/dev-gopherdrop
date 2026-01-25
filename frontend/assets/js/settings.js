@@ -45,8 +45,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load Discoverable State
     const toggle = document.getElementById('discoverable-toggle');
     const isDiscoverable = localStorage.getItem('gdrop_is_discoverable') !== 'false';
+
     if (toggle) {
-        isDiscoverable ? toggle.classList.add('active') : toggle.classList.remove('active');
+        if (isDiscoverable) {
+            toggle.classList.add('active');
+        } else {
+            toggle.classList.remove('active');
+        }
+
+        setTimeout(() => {
+            if (typeof window.setDiscoverable === 'function') {
+                window.setDiscoverable(isDiscoverable);
+                console.log("[Settings] Initial discovery state synced:", isDiscoverable);
+            }
+        }, 1000);
     }
 
     // Load Theme State for Buttons (if any)
@@ -104,8 +116,12 @@ window.toggleDiscoverable = function (el) {
     // Sync with WebSocket immediately if possible
     if (typeof window.setDiscoverable === 'function') {
         window.setDiscoverable(isActive);
-        const status = isActive ? 'Visible' : 'Hidden';
-        if (window.showToast) window.showToast(`Device is now ${status}`, 'info');
+        const statusMsg = isActive ? 'Device is now Visible' : 'Device is now Hidden (Incognito)';
+        const toastType = isActive ? 'success' : 'info';
+
+        if (window.showToast) window.showToast(statusMsg, toastType);
+    } else {
+        console.warn("[Settings] window.setDiscoverable is not defined yet.");
     }
 };
 
@@ -139,7 +155,6 @@ window.saveConfiguration = async function (isRetry = false) {
         if (token) {
             const apiUrl = `${API_BASE}/protected/user`;
 
-            // === FIX: TAMBAHKAN HEADER NGROK ===
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
