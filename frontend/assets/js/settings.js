@@ -47,11 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDiscoverable = localStorage.getItem('gdrop_is_discoverable') !== 'false';
 
     if (toggle) {
-        if (isDiscoverable) {
-            toggle.classList.add('active');
-        } else {
-            toggle.classList.remove('active');
-        }
+        isDiscoverable ? toggle.classList.add('active') : toggle.classList.remove('active');
 
         setTimeout(() => {
             if (typeof window.setDiscoverable === 'function') {
