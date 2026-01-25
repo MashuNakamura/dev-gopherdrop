@@ -1,7 +1,7 @@
 // ==========================================
 // Global State
 // ==========================================
-let currentDevices = [];
+window.currentDevices = window.currentDevices || [];
 const DEVICES_PER_PAGE = 6;
 let currentPage = 1;
 
@@ -18,13 +18,10 @@ function updateDeviceListFromBackend(backendUsers) {
     const myPublicKey = localStorage.getItem('gdrop_public_key');
 
     // Simpan state checked biar gak ilang pas refresh polling
-    const checkedIds = new Set(currentDevices.filter(d => d.checked).map(d => d.id));
+    const checkedIds = new Set(window.currentDevices.filter(d => d.checked).map(d => d.id));
 
-    currentDevices = backendUsers
-        .filter(item => {
-            // Filter diri sendiri
-            return item.user && item.user.public_key !== myPublicKey;
-        })
+    window.currentDevices = backendUsers
+        .filter(item => item.user && item.user.public_key !== myPublicKey)
         .map((item) => {
             const userId = item.user.public_key;
             return {
@@ -32,7 +29,7 @@ function updateDeviceListFromBackend(backendUsers) {
                 name: item.user.username || 'Unknown Device',
                 icon: 'computer',
                 status: 'Connected',
-                checked: checkedIds.has(userId) // Restore checked state
+                checked: checkedIds.has(userId)
             };
         });
 
@@ -84,7 +81,7 @@ function renderDevicesWithPagination() {
     if (!container) return;
 
     // Empty State
-    if (currentDevices.length === 0) {
+    if (window.currentDevices.length === 0) {
         container.innerHTML = `
             <div class="col-span-full py-16 flex flex-col items-center justify-center text-center">
                 <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 relative">
@@ -102,7 +99,7 @@ function renderDevicesWithPagination() {
     }
 
     const startIndex = (currentPage - 1) * DEVICES_PER_PAGE;
-    const paginatedDevices = currentDevices.slice(startIndex, startIndex + DEVICES_PER_PAGE);
+    const paginatedDevices = window.currentDevices.slice(startIndex, startIndex + DEVICES_PER_PAGE);
 
     container.innerHTML = paginatedDevices.map(device => createDeviceCard(device)).join('');
 
@@ -117,7 +114,7 @@ function renderPagination() {
     const container = document.getElementById('pagination');
     if (!container) return;
 
-    const totalPages = Math.ceil(currentDevices.length / DEVICES_PER_PAGE);
+    const totalPages = Math.ceil(window.currentDevices.length / DEVICES_PER_PAGE);
 
     if (totalPages <= 1) {
         container.innerHTML = '';
@@ -145,7 +142,7 @@ function goToPage(page) {
 }
 
 function toggleDeviceSelection(deviceId) {
-    const device = currentDevices.find(d => d.id === deviceId);
+    const device = window.currentDevices.find(d => d.id === deviceId);
     if (device) {
         device.checked = !device.checked;
         renderDevicesWithPagination();
@@ -153,7 +150,7 @@ function toggleDeviceSelection(deviceId) {
 }
 
 function getSelectedDevices() {
-    return currentDevices.filter(d => d.checked);
+    return window.currentDevices.filter(d => d.checked);
 }
 
 // ==========================================
@@ -244,6 +241,16 @@ function sendToExistingGroup(groupId) {
 }
 
 function proceedWithSendToExistingGroup(groupId, group, selectedDevices) {
+    const sendBtn = document.getElementById('send-direct-btn');
+
+    if (sendBtn && sendBtn.disabled) return;
+
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+    }
+
+    if (window.resetTransferState) window.resetTransferState(false);
     // Add devices to group (avoid duplicates)
     const existingIds = new Set((group.devices || []).map(d => d.id));
     const newDevices = selectedDevices
@@ -301,11 +308,20 @@ function confirmCreateGroup() {
 }
 
 function proceedWithGroupCreation(name, selectedDevices) {
+    const sendBtn = document.getElementById('send-direct-btn');
+
+    if (sendBtn && sendBtn.disabled) return;
+
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+    }
+
+    if (window.resetTransferState) window.resetTransferState(false);
     // Simpan ke Session Storage buat dikirim via WS app.js
     sessionStorage.setItem('gdrop_transfer_devices', JSON.stringify(selectedDevices));
     sessionStorage.setItem('gdrop_group_name', name);
 
-    // === SAVE GROUP TO LOCALSTORAGE (Persistent) ===
     let groupId = null;
     if (window.addGroupToStorage && window.generateGroupId) {
         groupId = window.generateGroupId();
@@ -1188,6 +1204,19 @@ window.sendDirectlyToSelection = function() {
 
 // Helper untuk eksekusi transfer
 function proceedDirectTransfer(selectedDevices) {
+    // Ambil button untuk prevent spam klik
+    const sendBtn = document.getElementById('send-direct-btn');
+
+    if (sendBtn && sendBtn.disabled) return;
+
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+    }
+
+    // Reset state transfer sebelumnya jika ada
+    if (window.resetTransferState) window.resetTransferState(false);
+
     // 1. Simpan target device ke session
     sessionStorage.setItem('gdrop_transfer_devices', JSON.stringify(selectedDevices));
 
@@ -1203,17 +1232,3 @@ function proceedDirectTransfer(selectedDevices) {
 }
 
 window.showTransferCompleteUI = showTransferCompleteUI;
-
-// Helper Global: Cek apakah ID device tertentu sedang Online
-window.isDeviceOnline = function(deviceId) {
-    // currentDevices adalah list yang didapat dari WebSocket (Realtime)
-    if (typeof currentDevices === 'undefined') return false;
-    return currentDevices.some(d => d.id === deviceId);
-};
-
-// Helper Global: Ambil semua device online yang BELUM ada di list tertentu (untuk fitur Add Device)
-window.getOnlineDevicesNotInList = function(existingDeviceIds) {
-    if (typeof currentDevices === 'undefined') return [];
-    const existingSet = new Set(existingDeviceIds);
-    return currentDevices.filter(d => !existingSet.has(d.id));
-};

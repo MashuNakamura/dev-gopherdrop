@@ -71,30 +71,45 @@ const showToast = (msg, type) => {
     if (window.showToast) window.showToast(msg, type);
 };
 
+// Anti spam
+let consecutiveFailures = 0; // Menghitung berapa kali gagal beruntuns
+let cooldownInterval = null;
+
 // ==========================================
 // INITIALIZATION
 // ==========================================
 
 async function initializeApp() {
-    // 1. Load Components
-    await loadComponent('sidebar-container', 'components/sidebar.html');
-    await loadComponent('upload-zone-container', 'components/upload-zone.html');
+    const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
 
-    // 2. Auth & Connection
+    // 1. Load Components (Global & Page Specific)
+    await loadComponent('sidebar-container', `${prefix}components/sidebar.html`);
+
+    if (!document.getElementById('incoming-modal-container')) {
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'incoming-modal-container';
+        document.body.appendChild(modalDiv);
+    }
+    await loadComponent('incoming-modal-container', `${prefix}components/incoming-modal.html`);
+
+    // Upload Zone: Hanya di-load jika containernya ada (Dashboard)
+    if (document.getElementById('upload-zone-container')) {
+        await loadComponent('upload-zone-container', `${prefix}components/upload-zone.html`);
+    }
+
+    // 2. Auth & Connection (Menjaga status tetap "Online" di semua page)
     const token = await initAuth();
     if (token) {
         connectToSignalingServer(token);
-    } else {
-        alert("Authentication Failed. Please reload.");
     }
 
     // 3. Init UI Logic
     if (typeof initFileUpload === 'function') initFileUpload();
     highlightActiveNav();
     startNetworkSpeedIndicator();
-    fetchNetworkSSID(); // Fetch and display current network SSID
+    fetchNetworkSSID(); // Mengambil SSID via Ngrok
 
-    // 4. Init Empty State
+    // 4. Init Dashboard Only UI
     if (typeof renderDevices === 'function' && document.getElementById('device-list')) {
         renderDevices([], 'device-list');
     }
@@ -133,7 +148,6 @@ async function fetchNetworkSSID() {
         if (mobileEl) mobileEl.textContent = 'Local Network';
     }
 }
-
 
 function highlightActiveNav() {
     const currentPath = window.location.pathname;
@@ -204,10 +218,6 @@ function connectToSignalingServer(token) {
         }
     };
 
-    signalingSocket.onerror = (error) => {
-        // showToast('Connection Error', 'error'); // Optional
-    };
-
     signalingSocket.onclose = () => {
         isSocketConnected = false;
         signalingSocket = null;
@@ -237,25 +247,26 @@ function handleSignalingMessage(msg) {
             break;
 
         case WS_TYPE.USER_SHARE_TARGET:
+            if (window.location.pathname.includes('transfer-progress.html')) {
+                console.log("[System] Busy: Ignoring incoming request during active transfer.");
+                break;
+            }
             handleTransactionCreated(msg.data);
             break;
 
         case WS_TYPE.TRANSACTION_SHARE_ACCEPT:
-            // Cek apakah ini Undangan (Receiver) atau Jawaban (Sender)
             if (msg.data && msg.data.transaction && msg.data.sender) {
-                // KASUS: Receiver dapet invite
                 if (msg.data.transaction.sender && msg.data.transaction.sender.user) {
                     targetPublicKey = msg.data.transaction.sender.user.public_key;
                 }
                 handleIncomingTransferOffer(msg.data);
             } else {
-                // KASUS: Sender dapet notif Accepted atau Declined
-
-                // Handle new decline_notification format from backend
                 if (msg.data && msg.data.type === 'decline_notification' && msg.data.declined) {
                     const responderName = msg.data.username || "Recipient";
                     showToast(`${responderName} declined your invitation.`, 'error');
-                    resetTransferState();
+
+                    resetTransferState(false);
+
                     return;
                 }
 
@@ -299,6 +310,7 @@ function handleSignalingMessage(msg) {
             break;
 
         case WS_TYPE.START_TRANSACTION:
+            consecutiveFailures = 0;
 
             window.transferStartTime = Date.now();
 
@@ -453,10 +465,15 @@ window.respondToInvitation = function(isAccepted) {
 
     if (!isAccepted) {
         pendingTransactionId = null;
-        resetTransferState()
+        resetTransferState();
         showToast('Transfer declined', 'info');
     } else {
         showToast('Accepted! Preparing connection...', 'success');
+
+        if (!window.location.pathname.includes('index.html')) {
+            const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
+            window.location.href = `${prefix}index.html`;
+        }
     }
 };
 
@@ -483,10 +500,6 @@ async function startWebRTCConnection(isInitiator) {
     peerConnection.onconnectionstatechange = () => {
         if(peerConnection.connectionState === 'connected') {
             showToast('P2P Connected!', 'success');
-
-            // UI Progress sudah ditampilkan saat START_TRANSACTION
-            // Tidak perlu memanggil showTransferProgressUI lagi di sini
-            // untuk menghindari override parameter isReceiver
         }
     };
 
@@ -736,7 +749,7 @@ window.triggerDownloadAll = function() {
 };
 
 window.endTransferSession = async function() {
-    if (window.resetTransferState) window.resetTransferState();
+    if (window.resetTransferState) window.resetTransferState(true);
 
     if (window.receivedFileBlobs) {
         window.receivedFileBlobs.forEach(f => URL.revokeObjectURL(f.url));
@@ -746,11 +759,12 @@ window.endTransferSession = async function() {
     if (window.clearFilesFromDB) {
         try {
             await window.clearFilesFromDB();
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
-    window.location.href = '/index.html';
+    // Redirect ke root (index.html)
+    const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
+    window.location.href = `${prefix}index.html`;
 };
 
 // ==========================================
@@ -781,73 +795,89 @@ window.updateNetworkSpeed = (mbps) => { currentSpeedMbps = mbps; };
 // HELPER: HANDLE FILES FROM UI
 // ==========================================
 window.handleFilesSelected = (files) => {
-    // Convert FileList ke Array biar enak
     fileQueue = Array.from(files);
-    // Simpan metadata ke session (opsional, buat display aja)
+
     const meta = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
     sessionStorage.setItem('gdrop_transfer_files', JSON.stringify(meta));
+
+    const sendBtn = document.getElementById('send-direct-btn');
+
+    if (sendBtn && !sendBtn.classList.contains('pointer-events-none')) {
+        sendBtn.disabled = false;
+    }
 };
 
-// function resetTransferState() {
-//     console.log("[System] Resetting transfer state...");
-//
-//     // 1. Tutup koneksi WebRTC jika masih ada
-//     if (peerConnection) {
-//         peerConnection.close();
-//         peerConnection = null;
-//     }
-//     dataChannel = null;
-//
-//     // 2. Reset ID dan Target
-//     currentTransactionId = null;
-//     pendingTransactionId = null;
-//     targetPublicKey = null;
-//     currentFileIndex = 0;
-//
-//     // 3. Reset Buffer Penerima
-//     incomingFileInfo = null;
-//     incomingFileBuffer = [];
-//     incomingReceivedSize = 0;
-//
-//     // 4. Tutup UI Overlay jika terbuka
-//     const overlay = document.getElementById('transfer-progress-overlay');
-//     if (overlay) {
-//         overlay.classList.add('hidden');
-//         overlay.classList.remove('flex');
-//     }
-// }
+function resetTransferState(clearFiles = false) {
+    console.log("[System] Resetting transaction state...");
 
-function resetTransferState() {
-    // 1. Matikan WebRTC
+    if (cooldownInterval) clearInterval(cooldownInterval);
+
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
     dataChannel = null;
 
-    // 2. Reset Variabel ID & Antrian
     currentTransactionId = null;
     pendingTransactionId = null;
     targetPublicKey = null;
     currentFileIndex = 0;
-    fileQueue = [];
 
-    // 3. HAPUS SESSION STORAGE (Biar nggak nyangkut pas refresh)
-    sessionStorage.removeItem('gdrop_transfer_devices');
-    sessionStorage.removeItem('gdrop_transfer_files');
-    sessionStorage.removeItem('gdrop_group_name');
-
-    if (window.receivedBlobs) {
-        window.receivedBlobs.forEach(f => URL.revokeObjectURL(f.url));
-        window.receivedBlobs = [];
+    if (clearFiles) {
+        fileQueue = [];
+        sessionStorage.removeItem('gdrop_transfer_files');
+        consecutiveFailures = 0;
     }
 
-    // 4. Tutup Overlay Progress
+    sessionStorage.removeItem('gdrop_transfer_devices');
+    sessionStorage.removeItem('gdrop_group_name');
+
+    if (window.receivedFileBlobs) {
+        window.receivedFileBlobs.forEach(f => URL.revokeObjectURL(f.url));
+        window.receivedFileBlobs = [];
+    }
+
     const overlay = document.getElementById('transfer-progress-overlay');
     if (overlay) {
         overlay.classList.add('hidden');
         overlay.classList.remove('flex');
     }
+
+    if (!clearFiles) consecutiveFailures++;
+    let secondsLeft = Math.min(3 * consecutiveFailures, 15); // Hitung detik (3, 6, 9...)
+
+    const sendButtons = ['send-direct-btn', 'send-files-btn'];
+
+    sendButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.add('pointer-events-none', 'opacity-50', 'cursor-not-allowed');
+
+            // Set teks awal
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">timer</span> Wait ${secondsLeft}s`;
+        }
+    });
+
+    cooldownInterval = setInterval(() => {
+        secondsLeft--;
+
+        sendButtons.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                if (secondsLeft > 0) {
+                    btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">timer</span> Wait ${secondsLeft}s`;
+                } else {
+                    clearInterval(cooldownInterval);
+                    btn.disabled = false;
+                    btn.classList.remove('pointer-events-none', 'opacity-50', 'cursor-not-allowed');
+                    btn.innerHTML = (id === 'send-direct-btn')
+                        ? '<span class="material-symbols-outlined">send</span> Send Now'
+                        : '<span class="material-symbols-outlined">send</span> Send Files to Group';
+                }
+            }
+        });
+    }, 1000);
 }
 
 // Expose agar bisa dipanggil dari components.js
