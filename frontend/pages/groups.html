@@ -5,7 +5,6 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>GopherDrop - Groups</title>
-    <link rel="icon" type="image/x-icon" href="./assets/img/logo.png">
 
     <!-- TailwindCSS CDN -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -18,6 +17,26 @@
 
     <!-- Reuse existing CSS -->
     <link href="../assets/css/style.css" rel="stylesheet" />
+
+    <!-- Fix: Force group name visibility -->
+    <style>
+        /* Force group name to be visible */
+        .group-item h4 {
+            color: #0f172a !important;
+        }
+
+        .group-item.active h4 {
+            color: #00d0ff !important;
+        }
+
+        html.dark .group-item h4 {
+            color: #f1f5f9 !important;
+        }
+
+        html.dark .group-item.active h4 {
+            color: #00d0ff !important;
+        }
+    </style>
 
     <!-- Reuse Tailwind Config -->
     <script src="../assets/js/tailwind.config.js"></script>
@@ -52,15 +71,15 @@
 
         <!-- Group List Panel (expands when no detail shown) -->
         <div id="group-list-container"
-            class="w-full lg:flex-1 bg-slate-50/50 split-border flex flex-col h-full relative transition-all duration-300">
+            class="w-full lg:flex-1 bg-[var(--bg-secondary)] split-border flex flex-col h-full relative transition-all duration-300">
             <!-- Header -->
-            <div class="p-4 lg:p-8 border-b border-slate-200 bg-white/50 backdrop-blur-sm">
-                <h2 class="text-xl lg:text-2xl font-bold text-slate-900 mb-4 lg:mb-6">Your Groups</h2>
+            <div class="p-4 lg:p-8 border-b border-[var(--border-color)] bg-[var(--bg-main)]/50 backdrop-blur-sm">
+                <h2 class="text-xl lg:text-2xl font-bold text-[var(--text-main)] mb-4 lg:mb-6">Your Groups</h2>
                 <div class="relative">
                     <span
-                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">search</span>
                     <input
-                        class="w-full pl-12 pr-4 py-2.5 lg:py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium"
+                        class="w-full pl-12 pr-4 py-2.5 lg:py-3 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium text-[var(--text-main)] placeholder-slate-400"
                         placeholder="Search groups..." type="text" id="group-search" />
                 </div>
             </div>
@@ -84,17 +103,17 @@
 
         <!-- Group Detail Panel (hidden by default) -->
         <div id="group-detail-container"
-            class="lg:flex-1 flex-col h-full bg-white relative hidden transition-all duration-300">
+            class="lg:flex-1 flex-col h-full bg-[var(--card-bg)] relative hidden transition-all duration-300">
             <!-- Back Button (Mobile only) -->
             <button
-                class="lg:hidden absolute top-4 left-4 z-20 p-2 rounded-lg bg-white shadow-md hover:bg-slate-50 transition-all"
+                class="lg:hidden absolute top-4 left-4 z-20 p-2 rounded-lg bg-[var(--card-bg)] shadow-md hover:bg-[var(--bg-secondary)] transition-all"
                 onclick="hideGroupDetail()">
-                <span class="material-symbols-outlined">arrow_back</span>
+                <span class="material-symbols-outlined text-[var(--text-main)]">arrow_back</span>
             </button>
 
             <!-- Header -->
             <div
-                class="px-4 lg:px-12 py-4 lg:py-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start gap-4 sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                class="px-4 lg:px-12 py-4 lg:py-8 border-b border-[var(--border-color)] flex flex-col sm:flex-row justify-between items-start gap-4 sticky top-0 bg-[var(--card-bg)]/80 backdrop-blur-md z-10">
                 <div class="pl-10 lg:pl-0">
                     <div class="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
                         <span class="material-symbols-outlined text-primary text-lg lg:text-base">apartment</span>
@@ -102,24 +121,19 @@
                             class="text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] lg:tracking-[0.2em] text-primary">Active
                             Group</span>
                     </div>
-                    <h3 class="text-xl lg:text-3xl font-bold text-slate-900" id="group-name"></h3>
-                    <p class="text-slate-500 text-sm lg:text-base mt-1" id="group-description"></p>
+                    <h3 class="text-xl lg:text-3xl font-bold text-[var(--text-main)]" id="group-name"></h3>
+                    <p class="text-[var(--text-muted)] text-sm lg:text-base mt-1" id="group-description"></p>
                 </div>
                 <div class="flex gap-2 lg:gap-3">
                     <button
-                            class="p-2 lg:p-3 rounded-lg lg:rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
-                            id="edit-group-btn" onclick="navigateToEditGroup()" title="Edit Group">
+                        class="p-2 lg:p-3 rounded-lg lg:rounded-xl border border-[var(--border-color)] text-[var(--text-muted)] hover:bg-[var(--bg-secondary)]"
+                        id="edit-group-btn" onclick="navigateToEditGroup()">
                         <span class="material-symbols-outlined text-lg lg:text-xl">edit</span>
                     </button>
                     <button
-                            class="p-2 lg:p-3 rounded-lg lg:rounded-xl border border-red-100 text-red-500 hover:bg-red-50"
-                            id="delete-group-btn" onclick="deleteSelectedGroup()" title="Delete Group">
+                        class="p-2 lg:p-3 rounded-lg lg:rounded-xl border border-red-100 text-red-500 hover:bg-red-50"
+                        id="delete-group-btn" onclick="deleteSelectedGroup()">
                         <span class="material-symbols-outlined text-lg lg:text-xl">delete</span>
-                    </button>
-                    <button
-                            class="p-2 lg:p-3 rounded-lg lg:rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                            onclick="hideGroupDetail()" title="Close Details">
-                        <span class="material-symbols-outlined text-lg lg:text-xl">close</span>
                     </button>
                 </div>
             </div>
@@ -131,7 +145,7 @@
                         <!-- Section Header -->
                         <div class="flex items-center justify-between mb-4 lg:mb-6">
                             <h4
-                                class="text-[10px] lg:text-sm font-black uppercase tracking-[0.15em] lg:tracking-[0.2em] text-slate-400">
+                                class="text-[10px] lg:text-sm font-black uppercase tracking-[0.15em] lg:tracking-[0.2em] text-[var(--text-muted)]">
                                 Member Devices</h4>
                             <div class="flex items-center gap-2 text-primary font-bold text-xs lg:text-sm"
                                 id="online-count">
@@ -149,7 +163,8 @@
             </div>
 
             <!-- Send Files Button -->
-            <div class="send-files-container p-4 lg:p-8 border-t absolute bottom-0 left-0 right-0 z-20">
+            <div
+                class="send-files-container p-4 lg:p-8 border-t border-[var(--border-color)] absolute bottom-0 left-0 right-0 z-20">
                 <button
                     class="w-full flex items-center justify-center gap-3 lg:gap-4 bg-primary text-white py-4 lg:py-5 rounded-xl lg:rounded-2xl font-bold shadow-lg shadow-primary/25 hover:brightness-105 active:scale-[0.99] transition-all"
                     id="send-files-btn">
@@ -160,34 +175,11 @@
         </div>
     </main>
 
-    <div id="add-device-to-group-modal" class="fixed inset-0 z-[60] hidden">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeAddDeviceToGroupModal()"></div>
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-                <h3 class="font-bold text-slate-900">Add Online Device</h3>
-                <button onclick="closeAddDeviceToGroupModal()" class="text-slate-400 hover:text-slate-600">
-                    <span class="material-symbols-outlined text-lg">close</span>
-                </button>
-            </div>
-
-            <div class="p-4 max-h-64 overflow-y-auto custom-scrollbar space-y-2" id="add-device-list-container">
-            </div>
-
-            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                <button onclick="confirmAddDevicesToGroup()" class="bg-primary text-white font-bold px-4 py-2 rounded-xl text-sm shadow-lg shadow-primary/20 hover:brightness-105 transition-all">
-                    Add Selected
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Scripts -->
     <script src="../assets/js/theme.js"></script>
-    <script src="../assets/js/fileStorage.js"></script>
-    <script src="../assets/js/components.js"></script>
     <script type="module" src="../assets/js/auth.js"></script>
     <script type="module" src="../assets/js/app.js"></script>
-    <script src="../assets/js/groups.js"></script>
+    <script src="../assets/js/groups.js?v=5"></script>
 
     <!-- Mobile Menu Script -->
     <script>
@@ -210,4 +202,5 @@
         document.getElementById('mobile-menu-btn')?.addEventListener('click', openMobileMenu);
     </script>
 </body>
+
 </html>
