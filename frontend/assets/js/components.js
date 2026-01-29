@@ -1138,24 +1138,16 @@ async function showTransferCompleteUI() {
         });
     }
 
-    // 7. FIX TOMBOL FOOTER (Download All & Dashboard)
+    // Button Footer in Transfer Complete Overlay
     const footerBtnContainer = overlay.querySelector('footer div:last-child');
     if (footerBtnContainer) {
-        footerBtnContainer.innerHTML = ''; // Reset tombol bawaan HTML
+        footerBtnContainer.innerHTML = '';
 
         if (isReceiver) {
-            // --- Tombol Khusus Receiver: DOWNLOAD ALL ---
             footerBtnContainer.innerHTML += `
                 <button onclick="triggerDownloadAll()" class="px-6 py-3 rounded-xl bg-primary text-white font-bold hover:brightness-105 transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
                     <span class="material-symbols-outlined">download_for_offline</span>
                     <span>Download All</span>
-                </button>
-            `;
-        } else {
-            // --- Tombol Khusus Sender: SEND MORE ---
-            footerBtnContainer.innerHTML += `
-                <button onclick="endTransferSession()" class="px-6 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-                    Send More
                 </button>
             `;
         }
@@ -1169,7 +1161,7 @@ async function showTransferCompleteUI() {
     }
 }
 
-window.sendDirectlyToSelection = function() {
+window.sendDirectlyToSelection = function () {
     const selectedDevices = getSelectedDevices();
 
     if (selectedDevices.length === 0) {

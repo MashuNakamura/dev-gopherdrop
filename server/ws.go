@@ -294,7 +294,7 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 					Username:        mUser.MinUser.Username,
 					Accepted:        true,
 					TransactionID:   data.TransactionID,
-					SenderPublicKey: tx.Sender.User.PublicKey,
+					SenderPublicKey: mUser.MinUser.PublicKey,
 				})
 			} else {
 				// Notify sender about decline
