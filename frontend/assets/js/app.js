@@ -8,7 +8,7 @@ import { loadComponent } from "./helper.js";
 const IS_LOCALHOST = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 // URL Backend Ngrok Static (Tanpa https:// dan tanpa slash akhir)
-const PROD_HOST = 'ahmad-heliochromic-astoundedly.ngrok-free.dev';
+const PROD_HOST = 'washable-collusively-arcelia.ngrok-free.dev';
 const LOCAL_HOST = 'localhost:8080';
 
 // URL HTTP API (untuk fetch SSID, dll)

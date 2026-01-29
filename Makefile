@@ -1,6 +1,6 @@
 BINARY_NAME=gopherdrop.exe
 
-NGROK_DOMAIN=ahmad-heliochromic-astoundedly.ngrok-free.dev
+NGROK_DOMAIN=washable-collusively-arcelia.ngrok-free.dev
 
 all: build
 
