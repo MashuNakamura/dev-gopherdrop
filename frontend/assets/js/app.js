@@ -251,6 +251,8 @@ function handleSignalingMessage(msg) {
 
         // New Transaction Created - Offering
         case WS_TYPE.USER_SHARE_TARGET:
+            // [FIXED] Hapus logic busy check manual disini, biarkan handleTransactionCreated mengurusnya
+            // agar bisa mengirim sinyal auto-decline jika busy.
             handleTransactionCreated(msg.data);
             break;
 
@@ -265,7 +267,7 @@ function handleSignalingMessage(msg) {
                 // Receiving accept/decline notification
                 if (msg.data && msg.data.type === 'decline_notification' && msg.data.declined) {
                     const responderName = msg.data.username || "Recipient";
-                    showToast(`${responderName} is busy or decline your invitation.`, 'warning');
+                    showToast(`${responderName} declined your invitation.`, 'error');
                     return;
                 }
 
@@ -566,7 +568,8 @@ async function handleWebRTCSignal(signal) {
     // If the remote key is not found, create a new peer connection
     if (!peerConnections[remoteKey]) {
         if (data.type === 'offer') {
-            startWebRTCConnection(false, remoteKey);
+            // [FIXED] Tambahkan await biar koneksi siap dulu
+            await startWebRTCConnection(false, remoteKey);
         } else {
             return;
         }
@@ -576,7 +579,7 @@ async function handleWebRTCSignal(signal) {
     const pc = peerConnections[remoteKey];
 
     if (!pc) {
-        window.showToast("PeerConnection not found for: " + remoteKey, "error");
+        // Optional log, maybe offer came too early or late
         return;
     }
 
@@ -634,7 +637,9 @@ function sendFileTo(key) {
     const state = transferStates[key];
     if (!state) return;
 
+    // Cek Queue User Ini
     if (state.index >= fileQueue.length) {
+        // [FIXED] Panggil fungsi Juri untuk cek apakah SEMUA user sudah selesai
         checkAllPeersDone();
         return;
     }
@@ -660,8 +665,7 @@ function sendFileTo(key) {
         channel.send(e.target.result);
         offset += e.target.result.byteLength;
 
-        // UI Update (Optional: Bisa bikin rata-rata progress kalau mau)
-        // Saat ini UI progress bar mengikuti chunk terakhir yang terkirim (agak lompat-lompat di multi-peer, tapi wajar)
+        // UI Update (Progress Bar Global - ambil rata-rata atau last active)
         const progress = Math.min(100, Math.round((offset / file.size) * 100));
         if (window.updateFileProgressUI) window.updateFileProgressUI(file.name, progress);
 
@@ -669,7 +673,7 @@ function sendFileTo(key) {
             readSlice(offset);
         } else {
             showToast(`Sent to device`, 'success');
-
+            // Naikkan index user ini & lanjut
             state.index++;
             setTimeout(() => sendFileTo(key), 100);
         }
@@ -683,6 +687,7 @@ function sendFileTo(key) {
     readSlice(0);
 }
 
+// [FIXED] Fungsi Juri (Cek apakah semua peer selesai)
 function checkAllPeersDone() {
     const allPeers = Array.from(acceptedPublicKeys);
 
@@ -693,18 +698,20 @@ function checkAllPeersDone() {
     for (const key of allPeers) {
         const state = transferStates[key];
 
+        // Jika ada state yang belum ada (belum mulai) atau index < jumlah file
         if (!state || state.index < fileQueue.length) {
             allFinished = false;
             break;
         }
     }
 
+    // Jika semua true, tampilkan complete UI
     if (allFinished) {
         const statusEl = document.getElementById('transfer-status-text');
         if (statusEl) statusEl.textContent = "ALL TRANSFERS COMPLETED";
 
         if (window.showTransferCompleteUI) {
-            window.showTransferCompleteUI();
+            setTimeout(() => window.showTransferCompleteUI(), 1000);
         }
     }
 }
@@ -749,6 +756,9 @@ function handleIncomingData(data) {
             // Jika kita punya info total file dari START_TRANSACTION, kita bisa show complete UI
             if (fileQueue.length > 0 && receivedFileCount >= fileQueue.length) {
                 if (statusEl) statusEl.textContent = "ALL RECEIVED";
+                // Set mode receiver agar UI komponen tau
+                window.isReceiverMode = true;
+                window.lastTransferFiles = fileQueue;
                 if (window.showTransferCompleteUI) setTimeout(() => window.showTransferCompleteUI(), 1000);
             }
         }
