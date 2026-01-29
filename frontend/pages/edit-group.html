@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>GopherDrop - Edit Group</title>
-    <link rel="icon" type="image/x-icon" href="./assets/img/logo.png">
+    <link rel="icon" type="image/x-icon" href="../assets/img/logo.png">
 
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
@@ -19,10 +19,11 @@
     <script src="../assets/js/tailwind.config.js"></script>
 </head>
 
-<body class="min-h-screen flex flex-col lg:flex-row bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+<body
+    class="h-screen w-screen overflow-hidden flex flex-col lg:flex-row bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
 
     <header
-        class="lg:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        class="lg:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex-shrink-0 flex items-center justify-between z-50">
         <div class="flex items-center gap-3">
             <div class="bg-primary p-1.5 rounded-lg text-white">
                 <span class="material-symbols-outlined text-xl block">rocket_launch</span>
@@ -40,11 +41,12 @@
         class="flex-shrink-0 fixed lg:relative left-0 top-0 h-full z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300"
         data-mobile-menu></div>
 
-    <main class="flex-1 flex flex-col lg:flex-row overflow-auto min-h-0">
+    <main class="flex-1 h-full overflow-hidden flex flex-col lg:flex-row relative">
 
         <div
-            class="w-full lg:w-1/2 lg:max-w-xl bg-white dark:bg-slate-800 flex flex-col h-full relative transition-colors duration-300">
-            <div class="px-4 lg:px-8 pt-4 lg:pt-8">
+            class="w-full lg:w-1/2 lg:max-w-xl bg-white dark:bg-slate-800 flex flex-col h-full relative transition-colors duration-300 border-r border-slate-200 dark:border-slate-700 z-10">
+
+            <div class="px-4 lg:px-8 pt-4 lg:pt-8 flex-shrink-0">
                 <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                     <a href="groups.html" class="hover:text-primary transition-colors">Groups</a>
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
@@ -52,28 +54,27 @@
                 </div>
             </div>
 
-            <div class="px-4 lg:px-8 py-4 lg:py-6">
+            <div class="px-4 lg:px-8 py-4 lg:py-6 flex-shrink-0">
                 <h2 class="text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white">Group Details</h2>
                 <p class="text-slate-500 dark:text-slate-400 text-sm lg:text-base mt-1">Configure the basic settings for
                     this group.</p>
             </div>
 
-            <div class="flex-1 px-4 lg:px-8 pb-32">
+            <div class="flex-1 overflow-y-auto px-4 lg:px-8 pb-32 custom-scrollbar">
                 <div class="space-y-6">
                     <div>
                         <label
-                            class="block text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 mb-2">
-                            Group Name
-                        </label>
+                            class="block text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 mb-2">Group
+                            Name</label>
                         <input type="text" id="group-name-input"
-                            class="w-full px-4 py-3 lg:py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-base lg:text-lg font-medium text-slate-900 dark:text-white placeholder-slate-400"
+                            class="w-full px-4 py-3 lg:py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:ring-0 focus:border-primary outline-none transition-all text-base lg:text-lg font-medium text-slate-900 dark:text-white placeholder-slate-400"
                             value="Engineering Team" />
                     </div>
                 </div>
             </div>
 
             <div
-                class="edit-group-actions absolute bottom-0 left-0 right-0 p-4 lg:p-8 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                class="absolute bottom-0 left-0 right-0 p-4 lg:p-8 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 z-20">
                 <button
                     class="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 hover:brightness-105 active:scale-[0.99] transition-all text-base"
                     id="save-btn">
@@ -87,18 +88,18 @@
         </div>
 
         <div
-            class="w-full lg:flex-1 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col h-full border-l border-slate-200 dark:border-slate-700 transition-colors duration-300">
-            <div class="px-4 lg:px-8 py-4 lg:py-8">
+            class="w-full lg:flex-1 bg-slate-50 dark:bg-slate-900 flex flex-col h-full transition-colors duration-300 relative">
+
+            <div class="px-4 lg:px-8 py-4 lg:py-8 flex-shrink-0">
                 <h3 class="text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">Manage Devices</h3>
                 <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Select devices to include in this group.</p>
             </div>
 
-            <div class="px-4 lg:px-8 pb-4">
+            <div class="px-4 lg:px-8 pb-4 flex-shrink-0">
                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                     <div class="relative flex-1">
                         <span
                             class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-
                         <input
                             class="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400"
                             placeholder="Search devices..." type="text" id="device-search" />
@@ -106,19 +107,15 @@
                     <div class="flex gap-2 text-xs font-bold">
                         <button
                             class="px-4 py-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                            onclick="deselectAllDevices()">
-                            DESELECT ALL
-                        </button>
+                            onclick="deselectAllDevices()">DESELECT ALL</button>
                         <button class="px-4 py-2.5 text-primary hover:text-primary/80 transition-colors"
-                            onclick="selectAllDevices()">
-                            SELECT ALL
-                        </button>
+                            onclick="selectAllDevices()">SELECT ALL</button>
                     </div>
                 </div>
             </div>
 
             <div class="flex-1 overflow-y-auto px-4 lg:px-8 pb-8 custom-scrollbar">
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="device-selection-grid">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" id="device-selection-grid">
                 </div>
             </div>
         </div>
@@ -127,8 +124,9 @@
     <script src="../assets/js/theme.js"></script>
     <script src="../assets/js/auth.js"></script>
     <script src="../assets/js/app.js"></script>
+
     <script>
-        // Available devices for selection (MOCK DATA - Ganti dengan real data nantinya)
+        // Available devices for selection (MOCK DATA)
         const availableDevices = [
             { id: '1', name: "Daniel's MacBook", os: 'macOS 14.5', deviceId: 'MB-8829', selected: true },
             { id: '2', name: "Main-Workstation", os: 'Windows 11', deviceId: 'PC-0012', selected: true },
@@ -138,27 +136,36 @@
             { id: '6', name: "Design iPad", os: 'iPadOS 17', deviceId: 'TB-1102', selected: true },
         ];
 
-        // Create selectable device card
+        // Create selectable device card (Tailwind Refactor)
         function createSelectableDeviceCard(device) {
             const selectedClass = device.selected
                 ? 'border-primary bg-primary/5 dark:bg-primary/10'
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600';
 
             const checkClass = device.selected
-                ? 'bg-primary text-white'
-                : 'bg-slate-100 dark:bg-slate-700 text-transparent';
+                ? 'bg-primary text-white border-primary'
+                : 'border-slate-200 dark:border-slate-600 text-transparent';
 
             return `
-                <div class="p-3 lg:p-4 rounded-xl border-2 ${selectedClass} cursor-pointer transition-all relative"
+                <div class="p-4 rounded-xl border-2 ${selectedClass} cursor-pointer transition-all duration-200 relative group hover:shadow-sm"
                      data-device-id="${device.id}"
                      onclick="toggleDevice('${device.id}')">
-                    <div class="absolute top-2 right-2 w-5 h-5 rounded-full ${checkClass} flex items-center justify-center transition-all">
-                        <span class="material-symbols-outlined text-sm">check</span>
+                    
+                    <div class="absolute top-3 right-3 w-5 h-5 rounded-md border-2 ${checkClass} flex items-center justify-center transition-all">
+                        <span class="material-symbols-outlined text-xs font-bold">check</span>
                     </div>
 
-                    <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate pr-6">${device.name}</h4>
-                    <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">${device.os} •</p>
-                    <p class="text-[10px] text-slate-400 dark:text-slate-500">${device.deviceId}</p>
+                    <div class="flex flex-col gap-1">
+                        <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 mb-2">
+                            <span class="material-symbols-outlined">computer</span>
+                        </div>
+                        <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate pr-6">${device.name}</h4>
+                        <div class="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                            <span>${device.os}</span>
+                            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                            <span class="font-mono">${device.deviceId}</span>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -208,10 +215,11 @@
             document.body.style.overflow = '';
         }
 
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', openMobileMenu);
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function () {
             renderDeviceGrid();
-            document.getElementById('mobile-menu-btn')?.addEventListener('click', openMobileMenu);
         });
     </script>
 </body>

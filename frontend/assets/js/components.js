@@ -10,7 +10,6 @@ let currentPage = 1;
 // ==========================================
 
 function updateDeviceListFromBackend(backendUsers) {
-
     if (!backendUsers || !Array.isArray(backendUsers)) {
         return;
     }
@@ -34,7 +33,7 @@ function updateDeviceListFromBackend(backendUsers) {
         });
 
     // Handle Pagination Reset
-    const totalPages = Math.ceil(currentDevices.length / DEVICES_PER_PAGE);
+    const totalPages = Math.ceil(window.currentDevices.length / DEVICES_PER_PAGE);
     if (currentPage > totalPages && totalPages > 0) {
         currentPage = 1;
     } else if (currentPage === 0 && totalPages > 0) {
@@ -45,31 +44,46 @@ function updateDeviceListFromBackend(backendUsers) {
 }
 
 // ==========================================
-// UI Rendering
+// UI Rendering (FULL TAILWIND REFACTOR)
 // ==========================================
 
 function createDeviceCard(device) {
-    const statusClass = 'bg-green-500'; // Selalu hijau karena yang dapet dari WS pasti online
-    const selectedClass = device.checked ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/50';
-    const checkClass = device.checked ? 'bg-primary text-white border-primary' : 'bg-transparent border-2 border-slate-300 text-transparent';
+    // Styling Dynamic (Selected vs Unselected)
+    const containerBase = "relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 group hover:shadow-lg hover:shadow-primary/5";
+
+    const containerStyle = device.checked
+        ? "bg-primary/5 border-primary dark:bg-primary/10"
+        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-primary/50 dark:hover:border-primary/50";
+
+    const checkboxBase = "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-200";
+
+    const checkboxStyle = device.checked
+        ? "bg-primary border-primary text-white"
+        : "border-slate-300 dark:border-slate-600 text-transparent group-hover:border-primary/50";
+
+    const iconBase = "w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-2xl transition-colors";
+    const iconStyle = device.checked
+        ? "bg-white text-primary shadow-sm"
+        : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400";
 
     return `
-        <div class="device-card bg-white p-4 rounded-2xl flex items-center gap-4 cursor-pointer border-2 ${selectedClass} transition-all shadow-sm hover:shadow-md" 
-             onclick="toggleDeviceSelection('${device.id}')">
-            
-            <div class="w-6 h-6 rounded-lg ${checkClass} flex items-center justify-center flex-shrink-0 transition-all">
-                <span class="material-symbols-outlined text-sm">check</span>
-            </div>
-            
-            <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500">
-                <span class="material-symbols-outlined text-2xl">${device.icon}</span>
-            </div>
-            
-            <div class="flex-1 min-w-0">
-                <p class="font-bold text-slate-800 truncate">${device.name}</p>
-                <div class="flex items-center gap-2 mt-0.5">
-                    <span class="w-2 h-2 rounded-full ${statusClass} animate-pulse"></span>
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Online</span>
+        <div class="${containerBase} ${containerStyle}" onclick="toggleDeviceSelection('${device.id}')">
+            <div class="flex items-center gap-4">
+                <div class="${checkboxBase} ${checkboxStyle}">
+                    <span class="material-symbols-outlined text-sm font-bold">check</span>
+                </div>
+                <div class="${iconBase} ${iconStyle}">
+                    <span class="material-symbols-outlined">${device.icon}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-800 dark:text-white truncate text-sm lg:text-base">${device.name}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Online</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -83,16 +97,18 @@ function renderDevicesWithPagination() {
     // Empty State
     if (window.currentDevices.length === 0) {
         container.innerHTML = `
-            <div class="col-span-full py-16 flex flex-col items-center justify-center text-center">
-                <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 relative">
-                    <span class="material-symbols-outlined text-4xl text-slate-300">radar</span>
-                    <div class="absolute inset-0 rounded-full border-2 border-slate-100 animate-ping"></div>
+            <div class="col-span-full py-20 flex flex-col items-center justify-center text-center">
+                <div class="w-24 h-24 bg-slate-50 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6 relative group">
+                    <span class="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600 group-hover:text-primary/50 transition-colors">radar</span>
+                    <div class="absolute inset-0 rounded-full border-2 border-slate-100 dark:border-slate-700 animate-ping opacity-20"></div>
                 </div>
-                <h3 class="text-slate-900 font-bold text-lg">Scanning for devices...</h3>
-                <p class="text-slate-500 text-sm mt-1">Ensure other devices are on the same network.</p>
+                <h3 class="text-slate-900 dark:text-white font-bold text-lg">Scanning for devices...</h3>
+                <p class="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-xs mx-auto">
+                    Ensure other devices are on the same network and have GopherDrop open.
+                </p>
             </div>
         `;
-        renderPagination(); // Clear pagination
+        renderPagination();
         const countEl = document.getElementById('device-count');
         if (countEl) countEl.textContent = '0 FOUND';
         return;
@@ -105,7 +121,7 @@ function renderDevicesWithPagination() {
 
     // Update Counter
     const countEl = document.getElementById('device-count');
-    if (countEl) countEl.textContent = `${currentDevices.length} FOUND`;
+    if (countEl) countEl.textContent = `${window.currentDevices.length} FOUND`;
 
     renderPagination();
 }
@@ -121,13 +137,22 @@ function renderPagination() {
         return;
     }
 
+    const btnBase = "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200";
+    const btnActive = "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary shadow-sm";
+    const btnDisabled = "bg-slate-50 dark:bg-slate-900 border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed";
+
+    const prevClass = currentPage === 1 ? btnDisabled : btnActive;
+    const nextClass = currentPage === totalPages ? btnDisabled : btnActive;
+
     let html = `
-        <button class="w-10 h-10 rounded-lg flex items-center justify-center border border-slate-200 hover:bg-slate-50 disabled:opacity-50" 
+        <button class="${btnBase} ${prevClass}" 
                 onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
             <span class="material-symbols-outlined text-sm">chevron_left</span>
         </button>
-        <span class="text-sm font-bold text-slate-500 px-2">Page ${currentPage} / ${totalPages}</span>
-        <button class="w-10 h-10 rounded-lg flex items-center justify-center border border-slate-200 hover:bg-slate-50 disabled:opacity-50" 
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider px-4">
+            Page ${currentPage} / ${totalPages}
+        </span>
+        <button class="${btnBase} ${nextClass}" 
                 onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
             <span class="material-symbols-outlined text-sm">chevron_right</span>
         </button>
@@ -154,7 +179,7 @@ function getSelectedDevices() {
 }
 
 // ==========================================
-// Modal & Group Logic (Legacy Support)
+// Modal & Group Logic
 // ==========================================
 
 function openCreateGroupModal() {
@@ -166,10 +191,12 @@ function openCreateGroupModal() {
 
     const container = document.getElementById('selected-devices-list');
     if (container) {
-        // Render selected devices
         let html = selected.map(d => `
-            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg mb-2">
-                <span class="font-bold text-sm text-slate-700">${d.name}</span>
+            <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl mb-2 border border-slate-100 dark:border-slate-700">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-slate-400">computer</span>
+                    <span class="font-bold text-sm text-slate-700 dark:text-slate-200">${d.name}</span>
+                </div>
                 <span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
             </div>
         `).join('');
@@ -178,19 +205,19 @@ function openCreateGroupModal() {
         const existingGroups = window.loadGroupsFromStorage ? window.loadGroupsFromStorage() : [];
         if (existingGroups.length > 0) {
             html += `
-                <div class="mt-4 pt-4 border-t border-slate-200">
-                    <label class="block text-[10px] lg:text-xs font-black uppercase tracking-[0.15em] text-slate-400 mb-3">Or Send to Existing Group</label>
+                <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Or Send to Existing Group</label>
                     <div class="space-y-2">
                         ${existingGroups.map(g => `
-                            <button onclick="sendToExistingGroup('${g.id}')" class="w-full flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg hover:border-primary hover:bg-primary/5 transition-all">
+                            <button onclick="sendToExistingGroup('${g.id}')" class="w-full flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary hover:bg-primary/5 transition-all group">
                                 <div class="flex items-center gap-3">
                                     <span class="material-symbols-outlined text-primary">group</span>
                                     <div class="text-left">
-                                        <span class="font-bold text-sm text-slate-700 block">${g.name}</span>
+                                        <span class="font-bold text-sm text-slate-700 dark:text-white block">${g.name}</span>
                                         <span class="text-[10px] text-slate-400">${g.devices ? g.devices.length : 0} members</span>
                                     </div>
                                 </div>
-                                <span class="material-symbols-outlined text-slate-300">arrow_forward</span>
+                                <span class="material-symbols-outlined text-slate-300 group-hover:text-primary">arrow_forward</span>
                             </button>
                         `).join('')}
                     </div>
@@ -328,7 +355,7 @@ function proceedWithGroupCreation(name, selectedDevices) {
         const newGroup = {
             id: groupId,
             name: name,
-            description: `Created on ${new Date().toLocaleDateString()} with ${selectedDevices.length} device(s)`,
+            description: `No Description`,
             devices: selectedDevices.map(d => ({
                 id: d.id,
                 name: d.name,
@@ -355,29 +382,34 @@ function showFileUploadPrompt(onFilesSelected) {
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'file-upload-prompt-modal';
-        modal.className = 'fixed inset-0 z-[110] flex items-center justify-center';
+        modal.className = 'fixed inset-0 z-[110] flex items-center justify-center hidden';
         modal.innerHTML = `
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeFileUploadPrompt()"></div>
-            <div class="relative bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl z-10">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeFileUploadPrompt()"></div>
+            <div class="relative bg-white dark:bg-slate-800 rounded-3xl p-8 w-full max-w-md mx-4 shadow-2xl z-10 transform scale-100 transition-all">
                 <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-bold text-slate-900">No Files Selected</h3>
-                    <button class="p-2 rounded-lg hover:bg-slate-100 transition-all" onclick="closeFileUploadPrompt()">
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">No Files Selected</h3>
+                    <button class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-all" onclick="closeFileUploadPrompt()">
                         <span class="material-symbols-outlined">close</span>
                     </button>
                 </div>
-                <div class="text-center py-6">
-                    <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span class="material-symbols-outlined text-3xl text-primary">upload_file</span>
+                <div class="text-center py-4">
+                    <div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <span class="material-symbols-outlined text-4xl text-primary">upload_file</span>
                     </div>
-                    <p class="text-slate-600 mb-6">Please select files to send before creating the group.</p>
+                    <p class="text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                        You selected devices but haven't picked any files yet. Please select files to proceed.
+                    </p>
                     <input type="file" id="prompt-file-input" multiple class="hidden" />
-                    <button onclick="triggerPromptFileSelect()" class="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-105 transition-all mb-3">
-                        <span class="material-symbols-outlined mr-2 align-middle">folder_open</span>
-                        Select Files
-                    </button>
-                    <button onclick="closeFileUploadPrompt()" class="w-full py-3 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all">
-                        Cancel
-                    </button>
+                    
+                    <div class="flex flex-col gap-3">
+                        <button onclick="triggerPromptFileSelect()" class="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined">folder_open</span>
+                            Select Files
+                        </button>
+                        <button onclick="closeFileUploadPrompt()" class="w-full py-4 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                            Cancel
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -389,7 +421,11 @@ function showFileUploadPrompt(onFilesSelected) {
 
     // Setup file input listener
     const fileInput = document.getElementById('prompt-file-input');
-    fileInput.onchange = (e) => {
+    // Clear old listeners via clone
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
+
+    newFileInput.onchange = (e) => {
         if (e.target.files.length > 0) {
             if (window.handleFilesSelected) {
                 window.handleFilesSelected(e.target.files);
@@ -429,7 +465,7 @@ function showToast(message, type = 'info') {
         container = document.createElement('div');
         container.id = 'toast-container';
         // Styling container (Fixed position top-center)
-        container.className = 'fixed top-10 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center w-full max-w-sm pointer-events-none';
+        container.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center w-full max-w-sm pointer-events-none gap-2';
         document.body.appendChild(container);
     }
 
@@ -441,30 +477,25 @@ function showToast(message, type = 'info') {
     const toast = document.createElement('div');
 
     // Config Color
-    let icon = 'info';
-    let colorClass = 'border-blue-500 bg-white text-slate-800';
+    const configs = {
+        success: { icon: 'check_circle', bg: 'bg-white dark:bg-slate-800', border: 'border-green-500', text: 'text-slate-800 dark:text-white', iconColor: 'text-green-500' },
+        error: { icon: 'error', bg: 'bg-white dark:bg-slate-800', border: 'border-red-500', text: 'text-slate-800 dark:text-white', iconColor: 'text-red-500' },
+        warning: { icon: 'warning', bg: 'bg-white dark:bg-slate-800', border: 'border-yellow-500', text: 'text-slate-800 dark:text-white', iconColor: 'text-yellow-500' },
+        info: { icon: 'info', bg: 'bg-white dark:bg-slate-800', border: 'border-blue-500', text: 'text-slate-800 dark:text-white', iconColor: 'text-blue-500' }
+    };
 
-    if (type === 'success') {
-        icon = 'check_circle';
-        colorClass = 'border-green-500 bg-white text-slate-800';
-    } else if (type === 'error') {
-        icon = 'error';
-        colorClass = 'border-red-500 bg-white text-slate-800';
-    } else if (type === 'warning') {
-        icon = 'warning';
-        colorClass = 'border-yellow-500 bg-white text-slate-800';
-    }
+    const cfg = configs[type] || configs.info;
 
     // Add some styling and content
-    toast.className = `flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border-l-4 transform transition-all duration-500 -translate-y-full opacity-0 pointer-events-auto min-w-[300px] w-full ${colorClass}`;
+    toast.className = `pointer-events-auto flex items-center gap-4 px-5 py-4 rounded-2xl shadow-xl border-l-4 ${cfg.border} ${cfg.bg} transform transition-all duration-500 -translate-y-10 opacity-0 min-w-[320px]`;
 
     toast.innerHTML = `
-        <span class="material-symbols-outlined text-2xl">${icon}</span>
+        <span class="material-symbols-outlined text-2xl ${cfg.iconColor}">${cfg.icon}</span>
         <div class="flex flex-col flex-1">
-            <span class="font-bold text-xs uppercase tracking-wider opacity-70">${type}</span>
-            <span class="font-bold text-sm">${message}</span>
+            <span class="font-bold text-[10px] uppercase tracking-wider opacity-60 ${cfg.text}">${type}</span>
+            <span class="font-bold text-sm ${cfg.text}">${message}</span>
         </div>
-        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-full transition-colors">
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-full transition-colors">
             <span class="material-symbols-outlined text-lg">close</span>
         </button>
     `;
@@ -511,18 +542,18 @@ function showIncomingModal(senderName, files) {
     const listContainer = document.getElementById('incoming-file-list');
     if (listContainer) {
         if (!files || files.length === 0) {
-            listContainer.innerHTML = `<p class="text-slate-400 text-center py-4">No metadata available</p>`;
+            listContainer.innerHTML = `<p class="text-slate-400 dark:text-slate-500 text-center py-4 text-sm">No metadata available</p>`;
         } else {
             // Di dalam function showIncomingModal(senderName, files)
             listContainer.innerHTML = files.map(file => `
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-primary/30 transition-colors">
+                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                        <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-primary shadow-sm border border-slate-100 dark:border-slate-700">
                             <span class="material-symbols-outlined text-xl">${getFileIcon(file.type || '')}</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="text-xs font-bold text-slate-700 truncate pr-2">${file.name}</span>
-                            <span class="text-[9px] text-slate-400 font-black uppercase tracking-wider">${formatFileSize(file.size)}</span>
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2">${file.name}</span>
+                            <span class="text-[9px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-wider">${formatFileSize(file.size)}</span>
                         </div>
                     </div>
                     <span class="material-symbols-outlined text-blue-400 text-sm">check_circle</span>
@@ -661,9 +692,9 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
     if (queueContainer) {
         queueContainer.innerHTML = files.map(file => {
             let icon = 'draft';
-            let color = 'text-slate-400 bg-slate-50';
-            if (file.type && file.type.includes('image')) { icon = 'image'; color = 'text-blue-500 bg-blue-50'; }
-            else if (file.type && file.type.includes('pdf')) { icon = 'picture_as_pdf'; color = 'text-red-500 bg-red-50'; }
+            let color = 'text-slate-400 bg-slate-100 dark:bg-slate-700/50';
+            if (file.type && file.type.includes('image')) { icon = 'image'; color = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'; }
+            else if (file.type && file.type.includes('pdf')) { icon = 'picture_as_pdf'; color = 'text-red-500 bg-red-50 dark:bg-red-900/20'; }
 
             const safeID = file.name.replace(/[^a-zA-Z0-9]/g, '');
             return `
@@ -849,15 +880,15 @@ function initFileUpload() {
 
             dropZone.ondragover = (e) => {
                 e.preventDefault();
-                dropZone.classList.add('border-primary', 'bg-blue-50');
+                dropZone.classList.add('border-primary', 'bg-blue-50', 'dark:bg-slate-800');
             };
             dropZone.ondragleave = (e) => {
                 e.preventDefault();
-                dropZone.classList.remove('border-primary', 'bg-blue-50');
+                dropZone.classList.remove('border-primary', 'bg-blue-50', 'dark:bg-slate-800');
             };
             dropZone.ondrop = (e) => {
                 e.preventDefault();
-                dropZone.classList.remove('border-primary', 'bg-blue-50');
+                dropZone.classList.remove('border-primary', 'bg-blue-50', 'dark:bg-slate-800');
                 handleFiles(e.dataTransfer.files);
             };
         }
@@ -889,7 +920,7 @@ function handleFiles(files) {
             titleEl.textContent = `${files.length} File(s) Selected`;
             titleEl.classList.add('text-primary');
         }
-        if (descEl) descEl.textContent = "Click 'Create Group' above to send.";
+        if (descEl) descEl.textContent = "Click 'Send Now' to proceed.";
 
     } else {
     }
@@ -933,25 +964,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait a bit for upload zone to be rendered
     setTimeout(loadSavedFiles, 2000);
 });
-
-// Expose Global
-window.initFileUpload = initFileUpload;
-window.showTransferProgressUI = showTransferProgressUI;
-window.updateFileProgressUI = updateFileProgressUI;
-window.endTransferSession = endTransferSession;
-window.showToast = showToast;
-window.showIncomingModal = showIncomingModal;
-window.closeIncomingModal = closeIncomingModal;
-window.toggleDeviceSelection = toggleDeviceSelection;
-window.goToPage = goToPage;
-window.updateDeviceListFromBackend = updateDeviceListFromBackend;
-window.openCreateGroupModal = openCreateGroupModal;
-window.closeCreateGroupModal = closeCreateGroupModal;
-window.confirmCreateGroup = confirmCreateGroup;
-window.sendToExistingGroup = sendToExistingGroup;
-window.showFileUploadPrompt = showFileUploadPrompt;
-window.closeFileUploadPrompt = closeFileUploadPrompt;
-window.triggerPromptFileSelect = triggerPromptFileSelect;
 
 // ==========================================
 // Transfer Complete UI Logic (Dynamic Loading)
@@ -1213,4 +1225,26 @@ function proceedDirectTransfer(selectedDevices) {
     }
 }
 
+window.showTransferCompleteUI = showTransferCompleteUI;
+
+// Expose Globals
+window.initFileUpload = initFileUpload;
+window.showTransferProgressUI = showTransferProgressUI;
+window.updateFileProgressUI = updateFileProgressUI;
+window.endTransferSession = endTransferSession;
+window.showToast = showToast;
+window.showIncomingModal = showIncomingModal;
+window.closeIncomingModal = closeIncomingModal;
+window.toggleDeviceSelection = toggleDeviceSelection;
+window.goToPage = goToPage;
+window.updateDeviceListFromBackend = updateDeviceListFromBackend;
+window.openCreateGroupModal = openCreateGroupModal;
+window.closeCreateGroupModal = closeCreateGroupModal;
+window.confirmCreateGroup = confirmCreateGroup;
+window.sendToExistingGroup = sendToExistingGroup;
+window.showFileUploadPrompt = showFileUploadPrompt;
+window.closeFileUploadPrompt = closeFileUploadPrompt;
+window.triggerPromptFileSelect = triggerPromptFileSelect;
+window.proceedDirectTransfer = proceedDirectTransfer;
+window.sendDirectlyToSelection = sendDirectlyToSelection;
 window.showTransferCompleteUI = showTransferCompleteUI;

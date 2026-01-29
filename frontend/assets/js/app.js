@@ -194,7 +194,7 @@ function connectToSignalingServer(token) {
     // EVENT HANDLERS
     // ==========================================
 
-    // Fetching "Who" is online every 5 seconds
+    // Fetching "Who" is online every 3 seconds
     signalingSocket.onopen = () => {
         isSocketConnected = true;
 
@@ -209,7 +209,7 @@ function connectToSignalingServer(token) {
             if (isSocketConnected) {
                 sendSignalingMessage(WS_TYPE.START_SHARING, null);
             }
-        }, 5000);
+        }, 3000);
     };
 
     signalingSocket.onmessage = (event) => {
