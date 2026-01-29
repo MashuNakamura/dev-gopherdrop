@@ -284,15 +284,17 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 			if data.Accept {
 				// Notify sender about acceptance
 				sendWS(tx.Sender.Conn, TRANSACTION_SHARE_ACCEPT, struct {
-					Type          string `json:"type"`
-					Username      string `json:"username"`
-					Accepted      bool   `json:"accepted"`
-					TransactionID string `json:"transaction_id"`
+					Type            string `json:"type"`
+					Username        string `json:"username"`
+					Accepted        bool   `json:"accepted"`
+					TransactionID   string `json:"transaction_id"`
+					SenderPublicKey string `json:"sender_public_key"`
 				}{
-					Type:          "accept_notification",
-					Username:      mUser.MinUser.Username,
-					Accepted:      true,
-					TransactionID: data.TransactionID,
+					Type:            "accept_notification",
+					Username:        mUser.MinUser.Username,
+					Accepted:        true,
+					TransactionID:   data.TransactionID,
+					SenderPublicKey: tx.Sender.User.PublicKey,
 				})
 			} else {
 				// Notify sender about decline
