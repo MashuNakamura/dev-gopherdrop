@@ -634,8 +634,8 @@ function sendFileTo(key) {
     const state = transferStates[key];
     if (!state) return;
 
-    // Cek Queue User Ini
     if (state.index >= fileQueue.length) {
+        checkAllPeersDone();
         return;
     }
 
@@ -660,7 +660,8 @@ function sendFileTo(key) {
         channel.send(e.target.result);
         offset += e.target.result.byteLength;
 
-        // UI Update (Progress Bar Global - ambil rata-rata atau last active)
+        // UI Update (Optional: Bisa bikin rata-rata progress kalau mau)
+        // Saat ini UI progress bar mengikuti chunk terakhir yang terkirim (agak lompat-lompat di multi-peer, tapi wajar)
         const progress = Math.min(100, Math.round((offset / file.size) * 100));
         if (window.updateFileProgressUI) window.updateFileProgressUI(file.name, progress);
 
@@ -668,7 +669,7 @@ function sendFileTo(key) {
             readSlice(offset);
         } else {
             showToast(`Sent to device`, 'success');
-            // Naikkan index user ini & lanjut
+
             state.index++;
             setTimeout(() => sendFileTo(key), 100);
         }
@@ -680,6 +681,32 @@ function sendFileTo(key) {
         else reader.readAsArrayBuffer(slice);
     };
     readSlice(0);
+}
+
+function checkAllPeersDone() {
+    const allPeers = Array.from(acceptedPublicKeys);
+
+    if (allPeers.length === 0) return;
+
+    let allFinished = true;
+
+    for (const key of allPeers) {
+        const state = transferStates[key];
+
+        if (!state || state.index < fileQueue.length) {
+            allFinished = false;
+            break;
+        }
+    }
+
+    if (allFinished) {
+        const statusEl = document.getElementById('transfer-status-text');
+        if (statusEl) statusEl.textContent = "ALL TRANSFERS COMPLETED";
+
+        if (window.showTransferCompleteUI) {
+            window.showTransferCompleteUI();
+        }
+    }
 }
 
 function handleIncomingData(data) {
