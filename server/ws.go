@@ -51,7 +51,33 @@ func sendWS(c *websocket.Conn, t WSType, data any) {
 
 func HandleWS(s *Server, mUser *ManagedUser) {
 	done := make(chan struct{})
-	defer close(done)
+	defer func() {
+		s.MUserMu.Lock()
+
+		delete(s.MUser, mUser.Conn)
+
+		var newCache []*ManagedUser
+		seenKeys := make(map[string]bool)
+
+		for _, u := range s.MUser {
+			if !seenKeys[u.User.PublicKey] {
+				newCache = append(newCache, u)
+				seenKeys[u.User.PublicKey] = true
+			}
+		}
+
+		s.CachedUser = newCache
+		s.MUserMu.Unlock()
+
+		s.MUserMu.RLock()
+		for _, dest := range s.MUser {
+			sendWS(dest.Conn, USER_SHARE_LIST, s.CachedUser)
+		}
+		s.MUserMu.RUnlock()
+
+		close(done)
+		mUser.Conn.Close()
+	}()
 
 	startJWTExpiryWatcher(mUser.Conn, mUser.JWTExpiry, done)
 	for {
