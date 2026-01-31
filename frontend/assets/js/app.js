@@ -352,6 +352,8 @@ function handleSignalingMessage(msg) {
                 // Receiver Side (Dari paket data)
                 if (msg.data && msg.data.files) {
                     displayFiles = msg.data.files;
+
+                    fileQueue = msg.data.files;
                 }
 
                 // Save sender device name globally
