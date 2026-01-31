@@ -977,6 +977,8 @@ window.handleFilesSelected = (files) => {
 };
 
 function resetTransferState(clearFiles = false) {
+    window.isTransferActive = false;
+
     if (cooldownInterval) clearInterval(cooldownInterval);
 
     // Clean up peer connections Map
