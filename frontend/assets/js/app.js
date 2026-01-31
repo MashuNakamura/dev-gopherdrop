@@ -314,6 +314,14 @@ function handleSignalingMessage(msg) {
 
         // Start Transaction (Both Sides) -> WebSocket out and WebRTC Initiation
         case WS_TYPE.START_TRANSACTION:
+            if (window.isTransferActive) {
+                console.log("Transfer UI already active, skipping re-init");
+                break;
+            }
+
+            // Tandai transfer sedang aktif
+            window.isTransferActive = true;
+
             consecutiveFailures = 0;
             window.transferStartTime = Date.now();
 
@@ -328,7 +336,7 @@ function handleSignalingMessage(msg) {
                     isInitiator = false;
                 }
             } else {
-                // Fallback Legacy (Jika tidak ada ID di paket)
+                // Fallback Legacy
                 const myPubKey = localStorage.getItem('gdrop_public_key');
                 const msgSender = msg.data.sender_public_key || msg.data.sender_id;
                 if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
