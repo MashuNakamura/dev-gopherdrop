@@ -79,6 +79,21 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 				sendWS(mUser.Conn, ERROR, "db failed to save your changes")
 				continue
 			}
+			
+			// Update the user's discoverable status in memory
+			mUser.User.IsDiscoverable = n
+			
+			// Refresh the cached user list and broadcast to all connected clients
+			// Hold write lock for entire operation to ensure atomicity
+			s.MUserMu.Lock()
+			CacheDiscoverableUser(s)
+			
+			// Broadcast updated user list to all connected clients
+			for _, connectedUser := range s.MUser {
+				sendWS(connectedUser.Conn, USER_SHARE_LIST, s.CachedUser)
+			}
+			s.MUserMu.Unlock()
+			
 			sendWS(mUser.Conn, CONFIG_DISCOVERABLE, "success")
 			continue
 		case START_SHARING:
@@ -267,8 +282,24 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 				continue
 			}
 
+			// Check if the transaction has already started
+			if tx.Started {
+				s.TransactionMu.Unlock()
+				sendWS(mUser.Conn, ERROR, "transaction has already started")
+				continue
+			}
+
+			// Find the target and update status
+			var targetFound bool
+			var alreadyResponded bool
 			for _, target := range tx.Targets {
 				if target.User == mUser {
+					targetFound = true
+					// Check if already responded to prevent duplicate responses
+					if target.Status != Pending {
+						alreadyResponded = true
+						break
+					}
 					if data.Accept {
 						target.Status = Accepted
 					} else {
@@ -276,6 +307,18 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 					}
 					break
 				}
+			}
+
+			if !targetFound {
+				s.TransactionMu.Unlock()
+				sendWS(mUser.Conn, ERROR, "you are not a target of this transaction")
+				continue
+			}
+
+			if alreadyResponded {
+				s.TransactionMu.Unlock()
+				sendWS(mUser.Conn, TRANSACTION_SHARE_ACCEPT, "response already recorded")
+				continue
 			}
 
 			sendWS(mUser.Conn, TRANSACTION_SHARE_ACCEPT, "response recorded")
