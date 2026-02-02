@@ -734,8 +734,10 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false, tr
 }
 
 // Fungsi Pembantu Render Mesh
-function renderMeshNetwork(count) {
-    if (!container) container = document.getElementById('mesh-network-view');
+function renderMeshNetwork(count, container = null) {
+    if (!container) {
+        container = document.getElementById('mesh-network-view');
+    }
     if (!container) return;
 
     // Hapus satelit lama (sisakan center node)
