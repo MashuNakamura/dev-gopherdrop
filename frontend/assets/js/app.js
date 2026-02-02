@@ -376,6 +376,7 @@ function handleSignalingMessage(msg) {
                 }
 
                 if (window.showTransferProgressUI) {
+                    console.log("🎨 [DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator);
                     window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
@@ -383,7 +384,11 @@ function handleSignalingMessage(msg) {
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
                 if (!isInitiator) {
-                    startWebRTCConnection(false, null);
+                    console.log("⏳ [DEBUG] Delaying WebRTC start for 500ms to ensure UI loads...");
+                    setTimeout(() => {
+                        console.log("⚡ [DEBUG] Starting WebRTC connection NOW");
+                        startWebRTCConnection(false, null);
+                    }, 500);
                 }
             }
             break;

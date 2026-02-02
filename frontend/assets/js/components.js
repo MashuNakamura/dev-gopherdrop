@@ -738,7 +738,10 @@ function renderMeshNetwork(count, container = null) {
     if (!container) {
         container = document.getElementById('mesh-network-view');
     }
-    if (!container) return;
+    if (!container) {
+        console.error("❌ [DEBUG] Mesh container not found!");
+        return;
+    }
 
     // Hapus satelit lama (sisakan center node)
     const oldNodes = container.querySelectorAll('.mesh-node, .connection-line');
