@@ -320,16 +320,23 @@ function handleSignalingMessage(msg) {
         case WS_TYPE.START_TRANSACTION:
             {
                 let incomingTxId = null;
-
+                let isDataObject = false;
+                
+                // Check if msg.data is object or string
                 if (msg.data && typeof msg.data === 'object' && msg.data.transaction_id) {
                     incomingTxId = msg.data.transaction_id;
+                    isDataObject = true;
+                } else if (typeof msg.data === 'string') {
+                    // Sender side receives "transaction started" string
+                    incomingTxId = currentTransactionId || pendingTransactionId;
+                    isDataObject = false;
                 } else if (currentTransactionId) {
                     incomingTxId = currentTransactionId;
                 } else if (pendingTransactionId) {
                     incomingTxId = pendingTransactionId;
                 }
 
-                console.log("[DEBUG] START_TRANSACTION - incomingTxId:", incomingTxId, "msg.data:", msg.data);
+                console.log("[DEBUG] START_TRANSACTION - incomingTxId:", incomingTxId, "msg.data type:", typeof msg.data, "isDataObject:", isDataObject);
 
                 const myPublicKey = localStorage.getItem('gdrop_public_key');
                 const uniqueTransferKey = incomingTxId && myPublicKey
@@ -359,26 +366,38 @@ function handleSignalingMessage(msg) {
 
                 let isInitiator = false;
 
-                if (msg.data && msg.data.transaction_id) {
+                if (isDataObject && msg.data.transaction_id) {
+                    // Receiver side: has full data object
                     if (currentTransactionId && msg.data.transaction_id === currentTransactionId) {
                         isInitiator = true;
                     } else {
                         isInitiator = false;
                     }
                 } else {
-                    const myPubKey = localStorage.getItem('gdrop_public_key');
-                    const msgSender = msg.data.sender_public_key || msg.data.sender_id;
-                    if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
-                    else isInitiator = (fileQueue.length > 0);
+                    // Sender side: msg.data is just "transaction started" string
+                    // Determine initiator based on fileQueue or currentTransactionId
+                    if (currentTransactionId && currentTransactionId === incomingTxId) {
+                        isInitiator = true;
+                    } else {
+                        isInitiator = (fileQueue.length > 0);
+                    }
                 }
+
+                console.log("[DEBUG] isInitiator:", isInitiator, "fileQueue.length:", fileQueue.length);
 
                 let displayFiles = [];
                 if (isInitiator) {
+                    // Sender side: use fileQueue
                     displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
+                    console.log("[DEBUG] Sender - displayFiles from fileQueue:", displayFiles.length, "files");
                 } else {
+                    // Receiver side: get from msg.data
                     if (msg.data && msg.data.files) {
                         displayFiles = msg.data.files;
                         fileQueue = msg.data.files;
+                        console.log("[DEBUG] Receiver - displayFiles from msg.data:", displayFiles.length, "files");
+                    } else {
+                        console.error("[DEBUG] ERROR - Receiver but no files in msg.data!");
                     }
 
                     if (msg.data && msg.data.sender_name) {
@@ -388,8 +407,14 @@ function handleSignalingMessage(msg) {
                     }
                 }
 
+                if (displayFiles.length === 0) {
+                    console.error("[DEBUG] CRITICAL ERROR - displayFiles is empty! Cannot show UI.");
+                    showToast('Error: No files to transfer', 'error');
+                    break;
+                }
+
                 if (window.showTransferProgressUI) {
-                    console.log("[DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator);
+                    console.log("[DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator, "files:", displayFiles.length);
                     window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
@@ -402,6 +427,8 @@ function handleSignalingMessage(msg) {
                         console.log("[DEBUG] Starting WebRTC connection NOW");
                         startWebRTCConnection(false, null);
                     }, 500);
+                } else {
+                    console.log("[DEBUG] Sender mode - WebRTC will be started by accept notifications");
                 }
             }
             break;
