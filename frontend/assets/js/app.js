@@ -320,20 +320,21 @@ function handleSignalingMessage(msg) {
         case WS_TYPE.START_TRANSACTION:
             {
                 const incomingTxId = msg.data && msg.data.transaction_id;
-                
-                // Check if this transaction is already active
-                if (incomingTxId && activeTransferIds.has(incomingTxId)) {
-                    console.log("Transfer UI already active for transaction:", incomingTxId);
+
+                const myPublicKey = localStorage.getItem('gdrop_public_key');
+                const uniqueTransferKey = incomingTxId && myPublicKey
+                    ? `${incomingTxId}_${myPublicKey}`
+                    : incomingTxId;
+
+                if (uniqueTransferKey && activeTransferIds.has(uniqueTransferKey)) {
+                    console.log("Transfer UI already active for this receiver:", uniqueTransferKey);
                     break;
                 }
 
-                // Mark this transaction as active
-                if (incomingTxId) {
-                    activeTransferIds.add(incomingTxId);
+                if (uniqueTransferKey) {
+                    activeTransferIds.add(uniqueTransferKey);
                 }
-                
-                // Set global flag only if this is the first active transfer
-                // This maintains backwards compatibility while allowing concurrent transfers
+
                 if (activeTransferIds.size === 1) {
                     window.isTransferActive = true;
                 }
@@ -368,7 +369,6 @@ function handleSignalingMessage(msg) {
                     // Receiver Side (Dari paket data)
                     if (msg.data && msg.data.files) {
                         displayFiles = msg.data.files;
-
                         fileQueue = msg.data.files;
                     }
 
@@ -493,13 +493,13 @@ function handleIncomingTransferOffer(data) {
 
 window.respondToInvitation = function (isAccepted) {
     if (!pendingTransactionId) return;
-    
+
     // Prevent duplicate responses to the same transaction
     if (hasRespondedToPendingTransaction) {
         console.log("Already responded to this transaction");
         return;
     }
-    
+
     hasRespondedToPendingTransaction = true;
 
     // If Accept then send the accept signal for creating WebRTC connection
@@ -1021,11 +1021,15 @@ window.handleFilesSelected = (files) => {
 };
 
 function resetTransferState(clearFiles = false) {
-    // Clear transaction from active set if we have one
+    // ✅ FIX: Clear transaction using unique key (txId + myPublicKey)
     if (currentTransactionId) {
-        activeTransferIds.delete(currentTransactionId);
+        const myPublicKey = localStorage.getItem('gdrop_public_key');
+        const uniqueTransferKey = myPublicKey
+            ? `${currentTransactionId}_${myPublicKey}`
+            : currentTransactionId;
+        activeTransferIds.delete(uniqueTransferKey);
     }
-    
+
     // Only set global flag to false if no more active transfers
     if (activeTransferIds.size === 0) {
         window.isTransferActive = false;
