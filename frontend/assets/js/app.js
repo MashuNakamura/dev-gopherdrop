@@ -353,26 +353,21 @@ function handleSignalingMessage(msg) {
                         isInitiator = false;
                     }
                 } else {
-                    // Fallback Legacy
                     const myPubKey = localStorage.getItem('gdrop_public_key');
                     const msgSender = msg.data.sender_public_key || msg.data.sender_id;
                     if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
                     else isInitiator = (fileQueue.length > 0);
                 }
 
-                // Siapkan antrian file & UI
                 let displayFiles = [];
                 if (isInitiator) {
-                    // Sender Side (Queue dari IndexedDB)
                     displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
                 } else {
-                    // Receiver Side (Dari paket data)
                     if (msg.data && msg.data.files) {
                         displayFiles = msg.data.files;
                         fileQueue = msg.data.files;
                     }
 
-                    // Save sender device name globally
                     if (msg.data && msg.data.sender_name) {
                         window.senderDeviceName = msg.data.sender_name;
                     } else if (msg.data && msg.data.sender) {
@@ -380,12 +375,10 @@ function handleSignalingMessage(msg) {
                     }
                 }
 
-                // Tampilkan Overlay Progress
                 if (window.showTransferProgressUI) {
-                    window.showTransferProgressUI(displayFiles, 1, !isInitiator);
+                    window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
-                // Set Global Role & Start WebRTC
                 isInitiatorRole = isInitiator;
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
@@ -1021,7 +1014,6 @@ window.handleFilesSelected = (files) => {
 };
 
 function resetTransferState(clearFiles = false) {
-    // ✅ FIX: Clear transaction using unique key (txId + myPublicKey)
     if (currentTransactionId) {
         const myPublicKey = localStorage.getItem('gdrop_public_key');
         const uniqueTransferKey = myPublicKey
@@ -1030,7 +1022,6 @@ function resetTransferState(clearFiles = false) {
         activeTransferIds.delete(uniqueTransferKey);
     }
 
-    // Only set global flag to false if no more active transfers
     if (activeTransferIds.size === 0) {
         window.isTransferActive = false;
     }

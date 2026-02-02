@@ -594,8 +594,12 @@ function closeIncomingModal() {
 // Transfer Progress UI Logic (Dynamic Loading)
 // ==========================================
 
-async function loadTransferProgressView() {
-    let overlay = document.getElementById('transfer-progress-overlay');
+async function loadTransferProgressView(transactionId) {
+    const overlayId = transactionId
+        ? `transfer-progress-overlay-${transactionId}`
+        : 'transfer-progress-overlay';
+
+    let overlay = document.getElementById(overlayId);
     if (overlay) return overlay;
 
     try {
@@ -606,16 +610,15 @@ async function loadTransferProgressView() {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        // Extract content from body
         const nav = doc.querySelector('nav');
         const main = doc.querySelector('main');
 
         if (!nav || !main) throw new Error("Invalid page structure");
 
-        // Create overlay container
         overlay = document.createElement('div');
-        overlay.id = 'transfer-progress-overlay';
+        overlay.id = overlayId;
         overlay.className = 'fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-900 flex flex-col transition-all duration-300 font-sans';
+        overlay.setAttribute('data-transaction-id', transactionId);
 
         // Inject content
         overlay.appendChild(nav.cloneNode(true));
@@ -628,49 +631,44 @@ async function loadTransferProgressView() {
 
         return overlay;
     } catch (e) {
+        console.error("Failed to load transfer UI:", e);
         return null;
     }
 }
 
-async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
+async function showTransferProgressUI(files, deviceCount, isReceiver = false, transactionId = null) {
     // Save state for completion screen
     window.lastTransferFiles = files;
     window.transferStartTime = Date.now();
     window.transferRecipientCount = deviceCount;
-    window.isReceiverMode = isReceiver; // Save for completion screen
+    window.isReceiverMode = isReceiver;
 
-    // 1. Ensure view is loaded - always reload for each transaction
-    let overlay = document.getElementById('transfer-progress-overlay');
+    let overlay = await loadTransferProgressView(transactionId);
     if (!overlay) {
-        overlay = await loadTransferProgressView();
-        if (!overlay) {
-            alert("Failed to load transfer UI");
-            return;
-        }
-    } else {
-        // If overlay already exists, just show it and reset progress
-        overlay.style.display = 'flex';
-        overlay.classList.remove('hidden');
+        alert("Failed to load transfer UI");
+        return;
     }
 
-    // --- LOGIC RESET UNTUK TOP BAR (Biar gak dianggurin) ---
-    const overallText = document.getElementById('overall-percentage');
+    // Show overlay
+    overlay.style.display = 'flex';
+    overlay.classList.remove('hidden');
+
+    // --- LOGIC RESET UNTUK TOP BAR ---
+    const overallText = overlay.querySelector('#overall-percentage');
     if (overallText) overallText.textContent = "0%";
-    const mainBar = document.getElementById('main-progress-bar');
+    const mainBar = overlay.querySelector('#main-progress-bar');
     if (mainBar) mainBar.style.width = "0%";
-    // -------------------------------------------------------
 
     // 2. Update Text Header & Save Device Name
     const peerName = (!isReceiver && (window.selectedDeviceName || sessionStorage.getItem('gdrop_group_name')))
         ? (window.selectedDeviceName || sessionStorage.getItem('gdrop_group_name'))
-        : (isReceiver ? (window.senderDeviceName || "Sender") : "Device"); // Use sender name for receiver
+        : (isReceiver ? (window.senderDeviceName || "Sender") : "Device");
 
-    window.peerDeviceName = peerName; // Save for completion screen
+    window.peerDeviceName = peerName;
 
     const actionText = isReceiver ? "Receiving" : "Sending";
     const subText = isReceiver ? "Receiving from" : "Transferring to";
 
-    // Update specific text spans (Adaptive UI)
     const actionTextEl = overlay.querySelector('#transfer-action-text');
     const directionTextEl = overlay.querySelector('#transfer-direction-text');
     const recipientCountEl = overlay.querySelector('#recipient-count');
@@ -678,7 +676,6 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
     if (actionTextEl) actionTextEl.textContent = actionText;
     if (directionTextEl) directionTextEl.textContent = subText;
 
-    // For Sender: Display Target Name. For Receiver: Display Count or Sender Name if avail.
     if (recipientCountEl) {
         if (!isReceiver && peerName && peerName !== "Device") {
             recipientCountEl.textContent = peerName;
@@ -692,13 +689,19 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
     if (badgeEl) badgeEl.textContent = `${files.length} files`;
 
     // 3. Render Queue (Card Style)
-    const queueContainer = document.getElementById('transfer-queue');
+    const queueContainer = overlay.querySelector('#transfer-queue');
     if (queueContainer) {
         queueContainer.innerHTML = files.map(file => {
             let icon = 'draft';
             let color = 'text-slate-400 bg-slate-100 dark:bg-slate-700/50';
-            if (file.type && file.type.includes('image')) { icon = 'image'; color = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20'; }
-            else if (file.type && file.type.includes('pdf')) { icon = 'picture_as_pdf'; color = 'text-red-500 bg-red-50 dark:bg-red-900/20'; }
+            if (file.type && file.type.includes('image')) {
+                icon = 'image';
+                color = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
+            }
+            else if (file.type && file.type.includes('pdf')) {
+                icon = 'picture_as_pdf';
+                color = 'text-red-500 bg-red-50 dark:bg-red-900/20';
+            }
 
             const safeID = file.name.replace(/[^a-zA-Z0-9]/g, '');
             return `
@@ -721,7 +724,10 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
     }
 
     // 3. Render Mesh
-    renderMeshNetwork(deviceCount || 1);
+    const meshContainer = overlay.querySelector('#mesh-network-view');
+    if (meshContainer) {
+        renderMeshNetwork(deviceCount || 1, meshContainer);
+    }
 
     overlay.classList.remove('hidden');
     overlay.classList.add('flex');
@@ -729,7 +735,7 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
 
 // Fungsi Pembantu Render Mesh
 function renderMeshNetwork(count) {
-    const container = document.getElementById('mesh-network-view');
+    if (!container) container = document.getElementById('mesh-network-view');
     if (!container) return;
 
     // Hapus satelit lama (sisakan center node)
@@ -985,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadTransferCompleteView() {
     let overlay = document.getElementById('transfer-complete-overlay');
-    
+
     // Remove existing overlay if present to prevent stacking
     if (overlay) {
         if (overlay.parentNode) {
