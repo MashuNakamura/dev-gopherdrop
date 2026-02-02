@@ -319,20 +319,33 @@ function handleSignalingMessage(msg) {
         // Start Transaction (Both Sides) -> WebSocket out and WebRTC Initiation
         case WS_TYPE.START_TRANSACTION:
             {
-                const incomingTxId = msg.data && msg.data.transaction_id;
+                let incomingTxId = null;
+
+                if (msg.data && typeof msg.data === 'object' && msg.data.transaction_id) {
+                    incomingTxId = msg.data.transaction_id;
+                } else if (currentTransactionId) {
+                    incomingTxId = currentTransactionId;
+                } else if (pendingTransactionId) {
+                    incomingTxId = pendingTransactionId;
+                }
+
+                console.log("[DEBUG] START_TRANSACTION - incomingTxId:", incomingTxId, "msg.data:", msg.data);
 
                 const myPublicKey = localStorage.getItem('gdrop_public_key');
                 const uniqueTransferKey = incomingTxId && myPublicKey
                     ? `${incomingTxId}_${myPublicKey}`
                     : incomingTxId;
 
+                console.log("[DEBUG] uniqueTransferKey:", uniqueTransferKey);
+
                 if (uniqueTransferKey && activeTransferIds.has(uniqueTransferKey)) {
-                    console.log("Transfer UI already active for this receiver:", uniqueTransferKey);
+                    console.log("[DEBUG] Transfer UI already active for this receiver:", uniqueTransferKey);
                     break;
                 }
 
                 if (uniqueTransferKey) {
                     activeTransferIds.add(uniqueTransferKey);
+                    console.log("[DEBUG] Added to activeTransferIds. Total:", activeTransferIds.size);
                 }
 
                 if (activeTransferIds.size === 1) {
@@ -376,7 +389,7 @@ function handleSignalingMessage(msg) {
                 }
 
                 if (window.showTransferProgressUI) {
-                    console.log("🎨 [DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator);
+                    console.log("[DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator);
                     window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
@@ -384,9 +397,9 @@ function handleSignalingMessage(msg) {
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
                 if (!isInitiator) {
-                    console.log("⏳ [DEBUG] Delaying WebRTC start for 500ms to ensure UI loads...");
+                    console.log("[DEBUG] Delaying WebRTC start for 500ms to ensure UI loads...");
                     setTimeout(() => {
-                        console.log("⚡ [DEBUG] Starting WebRTC connection NOW");
+                        console.log("[DEBUG] Starting WebRTC connection NOW");
                         startWebRTCConnection(false, null);
                     }, 500);
                 }
