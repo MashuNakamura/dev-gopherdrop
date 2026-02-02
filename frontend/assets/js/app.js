@@ -336,23 +336,17 @@ function handleSignalingMessage(msg) {
                     incomingTxId = pendingTransactionId;
                 }
 
-                console.log("[DEBUG] START_TRANSACTION - incomingTxId:", incomingTxId, "msg.data type:", typeof msg.data, "isDataObject:", isDataObject);
-
                 const myPublicKey = localStorage.getItem('gdrop_public_key');
                 const uniqueTransferKey = incomingTxId && myPublicKey
                     ? `${incomingTxId}_${myPublicKey}`
                     : incomingTxId;
 
-                console.log("[DEBUG] uniqueTransferKey:", uniqueTransferKey);
-
                 if (uniqueTransferKey && activeTransferIds.has(uniqueTransferKey)) {
-                    console.log("[DEBUG] Transfer UI already active for this receiver:", uniqueTransferKey);
                     break;
                 }
 
                 if (uniqueTransferKey) {
                     activeTransferIds.add(uniqueTransferKey);
-                    console.log("[DEBUG] Added to activeTransferIds. Total:", activeTransferIds.size);
                 }
 
                 if (activeTransferIds.size === 1) {
@@ -383,21 +377,15 @@ function handleSignalingMessage(msg) {
                     }
                 }
 
-                console.log("[DEBUG] isInitiator:", isInitiator, "fileQueue.length:", fileQueue.length);
-
                 let displayFiles = [];
                 if (isInitiator) {
                     // Sender side: use fileQueue
                     displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
-                    console.log("[DEBUG] Sender - displayFiles from fileQueue:", displayFiles.length, "files");
                 } else {
                     // Receiver side: get from msg.data
                     if (msg.data && msg.data.files) {
                         displayFiles = msg.data.files;
                         fileQueue = msg.data.files;
-                        console.log("[DEBUG] Receiver - displayFiles from msg.data:", displayFiles.length, "files");
-                    } else {
-                        console.error("[DEBUG] ERROR - Receiver but no files in msg.data!");
                     }
 
                     if (msg.data && msg.data.sender_name) {
@@ -408,13 +396,11 @@ function handleSignalingMessage(msg) {
                 }
 
                 if (displayFiles.length === 0) {
-                    console.error("[DEBUG] CRITICAL ERROR - displayFiles is empty! Cannot show UI.");
                     showToast('Error: No files to transfer', 'error');
                     break;
                 }
 
                 if (window.showTransferProgressUI) {
-                    console.log("[DEBUG] Showing progress UI for:", uniqueTransferKey, "isReceiver:", !isInitiator, "files:", displayFiles.length);
                     window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
@@ -422,13 +408,9 @@ function handleSignalingMessage(msg) {
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
                 if (!isInitiator) {
-                    console.log("[DEBUG] Delaying WebRTC start for 500ms to ensure UI loads...");
                     setTimeout(() => {
-                        console.log("[DEBUG] Starting WebRTC connection NOW");
                         startWebRTCConnection(false, null);
                     }, 500);
-                } else {
-                    console.log("[DEBUG] Sender mode - WebRTC will be started by accept notifications");
                 }
             }
             break;
@@ -534,7 +516,6 @@ window.respondToInvitation = function (isAccepted) {
 
     // Prevent duplicate responses to the same transaction
     if (hasRespondedToPendingTransaction) {
-        console.log("Already responded to this transaction");
         return;
     }
 
@@ -579,7 +560,6 @@ async function startWebRTCConnection(isInitiator, targetKey) {
     if (targetKey && peerConnections[targetKey]) {
         const existingState = peerConnections[targetKey].connectionState;
         if (existingState === 'connected' || existingState === 'connecting') {
-            console.log(`Connection to ${targetKey} already ${existingState}`);
             return;
         }
         // Close and clean up failed/disconnected connections
@@ -617,8 +597,6 @@ async function startWebRTCConnection(isInitiator, targetKey) {
     pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
             showToast('P2P Connected!', 'success');
-        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-            console.log(`Connection to ${targetKey} ${pc.connectionState}`);
         }
     };
 
