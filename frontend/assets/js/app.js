@@ -51,6 +51,7 @@ let isSocketConnected = false;
 let currentTransactionId = null;
 let discoveryInterval = null;
 let pendingTransactionId = null;
+let hasRespondedToPendingTransaction = false;
 
 // WebRTC State
 let peerConnections = {};
@@ -473,6 +474,7 @@ function handleIncomingTransferOffer(data) {
     }
 
     pendingTransactionId = data.transaction.id;
+    hasRespondedToPendingTransaction = false; // Reset flag for new transaction
     const senderName = data.sender || "Unknown Device";
     const files = data.transaction.files || [];
 
@@ -491,6 +493,14 @@ function handleIncomingTransferOffer(data) {
 
 window.respondToInvitation = function (isAccepted) {
     if (!pendingTransactionId) return;
+    
+    // Prevent duplicate responses to the same transaction
+    if (hasRespondedToPendingTransaction) {
+        console.log("Already responded to this transaction");
+        return;
+    }
+    
+    hasRespondedToPendingTransaction = true;
 
     // If Accept then send the accept signal for creating WebRTC connection
     sendSignalingMessage(WS_TYPE.TRANSACTION_SHARE_ACCEPT, {
@@ -519,16 +529,28 @@ window.respondToInvitation = function (isAccepted) {
 // ==========================================
 
 async function startWebRTCConnection(isInitiator, targetKey) {
-    // Don't connect again if the connection is already established
-    if (targetKey && peerConnections[targetKey] &&
-        (peerConnections[targetKey].connectionState === 'connected' ||
-            peerConnections[targetKey].connectionState === 'connecting')) {
+    // Validate that we have a target key for initiators
+    if (isInitiator && !targetKey) {
+        console.error("Initiator must have a target key");
         return;
     }
 
-    // Close existing connection if it exists
+    // Don't connect again if the connection is already established or connecting
     if (targetKey && peerConnections[targetKey]) {
-        peerConnections[targetKey].close();
+        const existingState = peerConnections[targetKey].connectionState;
+        if (existingState === 'connected' || existingState === 'connecting') {
+            console.log(`Connection to ${targetKey} already ${existingState}`);
+            return;
+        }
+        // Close and clean up failed/disconnected connections
+        if (existingState === 'failed' || existingState === 'disconnected' || existingState === 'closed') {
+            peerConnections[targetKey].close();
+            delete peerConnections[targetKey];
+            if (dataChannels[targetKey]) {
+                dataChannels[targetKey].close();
+                delete dataChannels[targetKey];
+            }
+        }
     }
 
     // Reset status transfer file untuk user ini
@@ -555,6 +577,8 @@ async function startWebRTCConnection(isInitiator, targetKey) {
     pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
             showToast('P2P Connected!', 'success');
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+            console.log(`Connection to ${targetKey} ${pc.connectionState}`);
         }
     };
 
