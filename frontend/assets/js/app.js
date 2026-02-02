@@ -531,7 +531,9 @@ window.respondToInvitation = function (isAccepted) {
 async function startWebRTCConnection(isInitiator, targetKey) {
     // Validate that we have a target key for initiators
     if (isInitiator && !targetKey) {
-        console.error("Initiator must have a target key");
+        const errorMsg = "Initiator must have a target key";
+        console.error(errorMsg);
+        showToast("Connection setup error: Missing target information", "error");
         return;
     }
 

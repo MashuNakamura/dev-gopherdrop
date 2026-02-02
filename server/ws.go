@@ -84,17 +84,15 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 			mUser.User.IsDiscoverable = n
 			
 			// Refresh the cached user list and broadcast to all connected clients
+			// Hold write lock for entire operation to ensure atomicity
 			s.MUserMu.Lock()
 			CacheDiscoverableUser(s)
-			cachedUsers := s.CachedUser
-			s.MUserMu.Unlock()
 			
 			// Broadcast updated user list to all connected clients
-			s.MUserMu.RLock()
 			for _, connectedUser := range s.MUser {
-				sendWS(connectedUser.Conn, USER_SHARE_LIST, cachedUsers)
+				sendWS(connectedUser.Conn, USER_SHARE_LIST, s.CachedUser)
 			}
-			s.MUserMu.RUnlock()
+			s.MUserMu.Unlock()
 			
 			sendWS(mUser.Conn, CONFIG_DISCOVERABLE, "success")
 			continue
