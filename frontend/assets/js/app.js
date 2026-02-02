@@ -70,6 +70,9 @@ let receivedFileCount = 0;
 // File Who is Sending
 let isInitiatorRole = false;
 
+// Active Transfer Tracking (per transaction ID)
+let activeTransferIds = new Set();
+
 // Helper wrapper untuk Toast (Safe Mode)
 const showToast = (msg, type) => {
     if (window.showToast) window.showToast(msg, type);
@@ -314,67 +317,80 @@ function handleSignalingMessage(msg) {
 
         // Start Transaction (Both Sides) -> WebSocket out and WebRTC Initiation
         case WS_TYPE.START_TRANSACTION:
-            if (window.isTransferActive) {
-                console.log("Transfer UI already active, skipping re-init");
-                break;
-            }
+            {
+                const incomingTxId = msg.data && msg.data.transaction_id;
+                
+                // Check if this transaction is already active
+                if (incomingTxId && activeTransferIds.has(incomingTxId)) {
+                    console.log("Transfer UI already active for transaction:", incomingTxId);
+                    break;
+                }
 
-            // Tandai transfer sedang aktif
-            window.isTransferActive = true;
+                // Mark this transaction as active
+                if (incomingTxId) {
+                    activeTransferIds.add(incomingTxId);
+                }
+                
+                // Set global flag only if this is the first active transfer
+                // This maintains backwards compatibility while allowing concurrent transfers
+                if (activeTransferIds.size === 1) {
+                    window.isTransferActive = true;
+                }
 
-            consecutiveFailures = 0;
-            window.transferStartTime = Date.now();
+                consecutiveFailures = 0;
+                window.transferStartTime = Date.now();
 
-            showToast('Initializing Connection...', 'success');
+                showToast('Initializing Connection...', 'success');
 
-            let isInitiator = false;
+                let isInitiator = false;
 
-            if (msg.data && msg.data.transaction_id) {
-                if (currentTransactionId && msg.data.transaction_id === currentTransactionId) {
-                    isInitiator = true;
+                if (msg.data && msg.data.transaction_id) {
+                    if (currentTransactionId && msg.data.transaction_id === currentTransactionId) {
+                        isInitiator = true;
+                    } else {
+                        isInitiator = false;
+                    }
                 } else {
-                    isInitiator = false;
-                }
-            } else {
-                // Fallback Legacy
-                const myPubKey = localStorage.getItem('gdrop_public_key');
-                const msgSender = msg.data.sender_public_key || msg.data.sender_id;
-                if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
-                else isInitiator = (fileQueue.length > 0);
-            }
-
-            // Siapkan antrian file & UI
-            let displayFiles = [];
-            if (isInitiator) {
-                // Sender Side (Queue dari IndexedDB)
-                displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
-            } else {
-                // Receiver Side (Dari paket data)
-                if (msg.data && msg.data.files) {
-                    displayFiles = msg.data.files;
-
-                    fileQueue = msg.data.files;
+                    // Fallback Legacy
+                    const myPubKey = localStorage.getItem('gdrop_public_key');
+                    const msgSender = msg.data.sender_public_key || msg.data.sender_id;
+                    if (msgSender && myPubKey) isInitiator = (msgSender === myPubKey);
+                    else isInitiator = (fileQueue.length > 0);
                 }
 
-                // Save sender device name globally
-                if (msg.data && msg.data.sender_name) {
-                    window.senderDeviceName = msg.data.sender_name;
-                } else if (msg.data && msg.data.sender) {
-                    window.senderDeviceName = msg.data.sender;
+                // Siapkan antrian file & UI
+                let displayFiles = [];
+                if (isInitiator) {
+                    // Sender Side (Queue dari IndexedDB)
+                    displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
+                } else {
+                    // Receiver Side (Dari paket data)
+                    if (msg.data && msg.data.files) {
+                        displayFiles = msg.data.files;
+
+                        fileQueue = msg.data.files;
+                    }
+
+                    // Save sender device name globally
+                    if (msg.data && msg.data.sender_name) {
+                        window.senderDeviceName = msg.data.sender_name;
+                    } else if (msg.data && msg.data.sender) {
+                        window.senderDeviceName = msg.data.sender;
+                    }
                 }
-            }
 
-            // Tampilkan Overlay Progress
-            if (window.showTransferProgressUI) {
-                window.showTransferProgressUI(displayFiles, 1, !isInitiator);
-            }
+                // Tampilkan Overlay Progress
+                if (window.showTransferProgressUI) {
+                    window.showTransferProgressUI(displayFiles, 1, !isInitiator);
+                }
 
-            // Set Global Role & Start WebRTC
-            isInitiatorRole = isInitiator;
-            sessionStorage.setItem('gdrop_is_sender', isInitiator);
+                // Set Global Role & Start WebRTC
+                isInitiatorRole = isInitiator;
+                sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
-            if (!isInitiator) {
-                startWebRTCConnection(false, null);
+                if (!isInitiator) {
+                    startWebRTCConnection(false, null);
+                }
             }
             break;
 
@@ -979,7 +995,15 @@ window.handleFilesSelected = (files) => {
 };
 
 function resetTransferState(clearFiles = false) {
-    window.isTransferActive = false;
+    // Clear transaction from active set if we have one
+    if (currentTransactionId) {
+        activeTransferIds.delete(currentTransactionId);
+    }
+    
+    // Only set global flag to false if no more active transfers
+    if (activeTransferIds.size === 0) {
+        window.isTransferActive = false;
+    }
 
     if (cooldownInterval) clearInterval(cooldownInterval);
 
