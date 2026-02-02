@@ -156,6 +156,11 @@ func SetupStaticFrontEnd(s *Server) {
 
 // SetupNetworkInfo provides endpoint for getting current network SSID
 func SetupNetworkInfo(group fiber.Router) {
+	// Network ping endpoint for speed estimation
+	group.Get("/network", func(c *fiber.Ctx) error {
+		return resp(c, cret(true, "pong", nil), fiber.StatusOK)
+	})
+	
 	group.Get("/network/ssid", func(c *fiber.Ctx) error {
 		netInfo := GetCurrentSSID()
 		return resp(c, cret(true, "network", netInfo), fiber.StatusOK)
