@@ -639,7 +639,7 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
     window.transferRecipientCount = deviceCount;
     window.isReceiverMode = isReceiver; // Save for completion screen
 
-    // 1. Ensure view is loaded
+    // 1. Ensure view is loaded - always reload for each transaction
     let overlay = document.getElementById('transfer-progress-overlay');
     if (!overlay) {
         overlay = await loadTransferProgressView();
@@ -647,6 +647,10 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false) {
             alert("Failed to load transfer UI");
             return;
         }
+    } else {
+        // If overlay already exists, just show it and reset progress
+        overlay.style.display = 'flex';
+        overlay.classList.remove('hidden');
     }
 
     // --- LOGIC RESET UNTUK TOP BAR (Biar gak dianggurin) ---
@@ -981,7 +985,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadTransferCompleteView() {
     let overlay = document.getElementById('transfer-complete-overlay');
-    if (overlay) return overlay;
+    
+    // Remove existing overlay if present to prevent stacking
+    if (overlay) {
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }
 
     try {
         const response = await fetch('pages/transfer-complete.html');
@@ -1028,9 +1038,17 @@ async function loadTransferCompleteView() {
 }
 
 async function showTransferCompleteUI() {
-    // 1. Sembunyikan Progress Bar
+    // 1. Sembunyikan Progress Bar dan remove dari DOM
     const progressOverlay = document.getElementById('transfer-progress-overlay');
-    if (progressOverlay) progressOverlay.style.display = 'none';
+    if (progressOverlay) {
+        progressOverlay.style.display = 'none';
+        // Also remove it from DOM to prevent stacking issues
+        setTimeout(() => {
+            if (progressOverlay.parentNode) {
+                progressOverlay.parentNode.removeChild(progressOverlay);
+            }
+        }, 500);
+    }
 
     // 2. Load View
     let overlay = await loadTransferCompleteView();
