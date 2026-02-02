@@ -739,7 +739,6 @@ function renderMeshNetwork(count, container = null) {
         container = document.getElementById('mesh-network-view');
     }
     if (!container) {
-        console.error("❌ [DEBUG] Mesh container not found!");
         return;
     }
 
