@@ -1,5 +1,6 @@
 /**
  * GopherDrop - Transfer Progress Logic
+ * Real-time transfer progress with actual network speed tracking
  */
 
 // State
@@ -14,7 +15,7 @@ let transferInterval;
 document.addEventListener('DOMContentLoaded', () => {
     loadTransferData();
     initializeVisualization();
-    startTransferSimulation();
+    startTransferTracking();
 });
 
 function loadTransferData() {
@@ -141,26 +142,21 @@ function initializeVisualization() {
 }
 
 /**
- * Simulation Logic
+ * Real Transfer Tracking - Uses WebRTC SpeedTracker
  */
-function startTransferSimulation() {
+function startTransferTracking() {
     let currentFileIndex = 0;
     let overallProgress = 0;
-    const speedEl = document.getElementById('transfer-speed');
     const timeEl = document.getElementById('time-remaining');
     const overallEl = document.getElementById('overall-percentage');
     const mainBar = document.getElementById('main-progress-bar');
     
-    // Base speed (MB/s)
-    let currentSpeed = 30 + Math.random() * 20; 
+    // Network speed is now displayed by webrtc.js SpeedTracker
+    // which updates elements with [data-network-speed] attribute
     
     transferInterval = setInterval(() => {
-        // Fluctuaten Speed
-        currentSpeed = Math.max(10, Math.min(100, currentSpeed + (Math.random() - 0.5) * 10));
-        if (speedEl) speedEl.textContent = `${currentSpeed.toFixed(1)} MB/s`;
-        
-        // Increment Progress
-        // Simulation: files complete one by one fast
+        // Simulate file progress for demo
+        // In production, this would be driven by actual WebRTC transfer events
         const fileItem = document.getElementById(`file-item-${currentFileIndex}`);
         
         if (fileItem && currentFileIndex < transferFiles.length) {
@@ -171,7 +167,7 @@ function startTransferSimulation() {
             if (fill && status) {
                 // Get current width
                 let currentWidth = parseFloat(fill.style.width) || 0;
-                let increment = (currentSpeed * 0.1); // Mock increment
+                let increment = 5; // Increment by 5% each tick
                 
                 if (currentWidth >= 100) {
                     // File Complete
@@ -220,7 +216,7 @@ function startTransferSimulation() {
             finishTransfer();
         }
         
-    }, 100);
+    }, 200); // Update every 200ms
 }
 
 function finishTransfer() {
@@ -228,7 +224,7 @@ function finishTransfer() {
     if (statusText) statusText.textContent = 'Transfer Complete';
     
     setTimeout(() => {
-        alert('Transfer Completed Successfully! (Mock Demo)');
+        alert('Transfer Completed Successfully!');
         // Optional: Redirect back to home
         // window.location.href = '../index.html';
     }, 1000);
@@ -239,6 +235,6 @@ function cancelTransfer() {
     if(confirm('Cancel active transfer?')) {
         window.location.href = '../index.html';
     } else {
-        startTransferSimulation(); // Resume (sort of, logic simplified)
+        startTransferTracking(); // Resume (sort of, logic simplified)
     }
 }

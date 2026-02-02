@@ -115,7 +115,7 @@ async function initializeApp() {
     // Init UI Logic
     if (typeof initFileUpload === 'function') initFileUpload();
     highlightActiveNav();
-    startNetworkSpeedIndicator();
+    // Network speed is now handled by webrtc.js SpeedTracker
     await fetchNetworkSSID();
 }
 
@@ -1004,21 +1004,6 @@ window.endTransferSession = async function () {
 window.setDiscoverable = (isDiscoverable) => {
     sendSignalingMessage(2, isDiscoverable);
 };
-
-// Dummy Network Speed
-let currentSpeedMbps = 0;
-function startNetworkSpeedIndicator() {
-    const speedElements = document.querySelectorAll('[data-network-speed]');
-    if (!speedElements.length) return;
-    setInterval(() => {
-        currentSpeedMbps = 10 + Math.random() * 15;
-    }, 2000);
-    setInterval(() => {
-        speedElements.forEach(el => {
-            el.textContent = `${currentSpeedMbps.toFixed(1)} MB/s`;
-        });
-    }, 800);
-}
 
 // ==========================================
 // HELPER: HANDLE FILES FROM UI
