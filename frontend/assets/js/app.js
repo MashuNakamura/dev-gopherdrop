@@ -331,8 +331,11 @@ function handleSignalingMessage(msg) {
                     activeTransferIds.add(incomingTxId);
                 }
                 
-                // Keep backwards compatibility with global flag
-                window.isTransferActive = true;
+                // Set global flag only if this is the first active transfer
+                // This maintains backwards compatibility while allowing concurrent transfers
+                if (activeTransferIds.size === 1) {
+                    window.isTransferActive = true;
+                }
 
                 consecutiveFailures = 0;
                 window.transferStartTime = Date.now();

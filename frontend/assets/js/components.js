@@ -1042,12 +1042,13 @@ async function showTransferCompleteUI() {
     const progressOverlay = document.getElementById('transfer-progress-overlay');
     if (progressOverlay) {
         progressOverlay.style.display = 'none';
-        // Also remove it from DOM to prevent stacking issues
+        // Remove from DOM after transition completes to prevent stacking issues
+        // Delay allows any ongoing transitions to complete smoothly
         setTimeout(() => {
             if (progressOverlay.parentNode) {
                 progressOverlay.parentNode.removeChild(progressOverlay);
             }
-        }, 500);
+        }, 500); // 500ms matches typical CSS transition durations
     }
 
     // 2. Load View
