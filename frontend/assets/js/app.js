@@ -839,12 +839,15 @@ async function sendFileTo(key) {
             const progress = Math.min(100, Math.round((offset / file.size) * 100));
             const overallProgress = Math.min(100, Math.round((totalBytesSent / totalBytesToSend) * 100));
             
-            // Calculate ETA
+            // Calculate ETA with guard against division by zero
             const elapsed = Date.now() - transferStartTime;
-            const bytesPerMs = totalBytesSent / elapsed;
-            const remainingBytes = totalBytesToSend - totalBytesSent;
-            const etaMs = bytesPerMs > 0 ? remainingBytes / bytesPerMs : 0;
-            const etaSeconds = Math.ceil(etaMs / 1000);
+            let etaSeconds = 0;
+            if (elapsed > 0 && totalBytesSent > 0) {
+                const bytesPerMs = totalBytesSent / elapsed;
+                const remainingBytes = totalBytesToSend - totalBytesSent;
+                const etaMs = bytesPerMs > 0 ? remainingBytes / bytesPerMs : 0;
+                etaSeconds = Math.ceil(etaMs / 1000);
+            }
             
             if (window.updateFileProgressUI) {
                 window.updateFileProgressUI(file.name, progress, key, overallProgress, etaSeconds);

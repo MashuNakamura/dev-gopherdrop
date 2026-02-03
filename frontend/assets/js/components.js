@@ -617,17 +617,11 @@ function showDesktopNotification(title, body, icon = null) {
     }
 }
 
-// Request permission on page load (non-intrusive)
+// Initialize notification permission state on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Only request after a small delay to avoid annoying users immediately
-    setTimeout(() => {
-        if (Notification.permission === 'default') {
-            // Don't auto-request, wait for user interaction
-            // Can be requested manually via settings
-        } else if (Notification.permission === 'granted') {
-            notificationPermission = 'granted';
-        }
-    }, 2000);
+    if ('Notification' in window && Notification.permission === 'granted') {
+        notificationPermission = 'granted';
+    }
 });
 
 // ==========================================
