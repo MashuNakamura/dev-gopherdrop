@@ -62,6 +62,11 @@ let fileQueue = [];
 // File Transfer State (Sender)
 let transferStates = {};
 
+// Progress tracking for ETA calculation
+let transferStartTime = null;
+let totalBytesToSend = 0;
+let totalBytesSent = 0;
+
 // File Transfer State (Receiver)
 let incomingFileInfo = null;
 let incomingFileBuffer = [];
@@ -784,6 +789,13 @@ async function sendFileTo(key) {
         return;
     }
 
+    // Initialize transfer start time on first file
+    if (!transferStartTime) {
+        transferStartTime = Date.now();
+        totalBytesToSend = fileQueue.reduce((sum, f) => sum + f.size, 0);
+        totalBytesSent = 0;
+    }
+
     // --- 1. SETUP BATAS AMAN ANTRIAN (64KB) ---
     const BUFFER_THRESHOLD = 65535;
     channel.bufferedAmountLowThreshold = BUFFER_THRESHOLD / 2;
@@ -821,10 +833,22 @@ async function sendFileTo(key) {
             channel.send(buffer);
 
             offset += buffer.byteLength;
+            totalBytesSent += buffer.byteLength;
 
-            // D. UPDATE UI
+            // D. UPDATE UI WITH OVERALL PROGRESS AND ETA
             const progress = Math.min(100, Math.round((offset / file.size) * 100));
-            if (window.updateFileProgressUI) window.updateFileProgressUI(file.name, progress);
+            const overallProgress = Math.min(100, Math.round((totalBytesSent / totalBytesToSend) * 100));
+            
+            // Calculate ETA
+            const elapsed = Date.now() - transferStartTime;
+            const bytesPerMs = totalBytesSent / elapsed;
+            const remainingBytes = totalBytesToSend - totalBytesSent;
+            const etaMs = bytesPerMs > 0 ? remainingBytes / bytesPerMs : 0;
+            const etaSeconds = Math.ceil(etaMs / 1000);
+            
+            if (window.updateFileProgressUI) {
+                window.updateFileProgressUI(file.name, progress, key, overallProgress, etaSeconds);
+            }
         }
 
         // --- 4. SELESAI KIRIM FILE INI ---
@@ -1080,6 +1104,11 @@ function resetTransferState(clearFiles = false) {
     dataChannels = {};
     acceptedPublicKeys.clear();
     transferStates = {};
+    
+    // Reset progress tracking
+    transferStartTime = null;
+    totalBytesToSend = 0;
+    totalBytesSent = 0;
 
     currentTransactionId = null;
     pendingTransactionId = null;

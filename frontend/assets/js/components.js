@@ -557,12 +557,92 @@ function showToast(message, type = 'info') {
 }
 
 // ==========================================
+// Desktop Notification
+// ==========================================
+
+let notificationPermission = null;
+
+// Request notification permission on page load (only once)
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        return false;
+    }
+    
+    if (Notification.permission === 'granted') {
+        notificationPermission = 'granted';
+        return true;
+    }
+    
+    if (Notification.permission !== 'denied') {
+        try {
+            const permission = await Notification.requestPermission();
+            notificationPermission = permission;
+            return permission === 'granted';
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+// Show desktop notification (only for important events)
+function showDesktopNotification(title, body, icon = null) {
+    // Only show if granted and browser supports it
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+    }
+    
+    try {
+        const notification = new Notification(title, {
+            body: body,
+            icon: icon || './assets/img/logo.png',
+            badge: './assets/img/logo.png',
+            tag: 'gopherdrop-notification', // Replace previous notifications with same tag
+            requireInteraction: false,
+            silent: false
+        });
+        
+        // Auto close after 5 seconds
+        setTimeout(() => notification.close(), 5000);
+        
+        // Focus window when clicked
+        notification.onclick = function() {
+            window.focus();
+            notification.close();
+        };
+    } catch (error) {
+        console.error('Error showing notification:', error);
+    }
+}
+
+// Request permission on page load (non-intrusive)
+document.addEventListener('DOMContentLoaded', () => {
+    // Only request after a small delay to avoid annoying users immediately
+    setTimeout(() => {
+        if (Notification.permission === 'default') {
+            // Don't auto-request, wait for user interaction
+            // Can be requested manually via settings
+        } else if (Notification.permission === 'granted') {
+            notificationPermission = 'granted';
+        }
+    }, 2000);
+});
+
+// ==========================================
 // Incoming Request UI Logic
 // ==========================================
 
 function showIncomingModal(senderName, files) {
     const modal = document.getElementById('incoming-request-modal');
     if (!modal) return;
+
+    // Show desktop notification for incoming transfer
+    showDesktopNotification(
+        '📥 Incoming File Transfer',
+        `${senderName} wants to send you ${files.length} file(s)`
+    );
 
     // 1. Update Nama & Jumlah
     document.getElementById('incoming-sender').textContent = senderName;
@@ -819,7 +899,7 @@ function renderMeshNetwork(count, container = null) {
 
 const fileProgressMap = {};
 
-window.updateFileProgressUI = function (fileName, percentage, deviceId = 'general') {
+window.updateFileProgressUI = function (fileName, percentage, deviceId = 'general', overallProgress = null, etaSeconds = null) {
     const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '');
 
     if (!fileProgressMap[safeName]) fileProgressMap[safeName] = 0;
@@ -848,25 +928,43 @@ window.updateFileProgressUI = function (fileName, percentage, deviceId = 'genera
     if (percentEl) percentEl.textContent = `${Math.round(percentage)}%`;
     if (barEl) barEl.style.width = `${percentage}%`;
 
-    // 2. UPDATE TOP BAR (Agar Gak Dianggurin)
-    // Ambil semua persentase file yang ada di layar, lalu hitung rata-ratanya
-    const allPercentEls = document.querySelectorAll('[id^="percent-"]');
-    let total = 0;
-    allPercentEls.forEach(el => {
-        total += parseInt(el.textContent) || 0;
-    });
-
-    const averageProgress = Math.round(total / (allPercentEls.length || 1));
-
-    // Update Progress Bar Besar di Atas (Miro Gambar 4)
+    // 2. UPDATE TOP BAR with Overall Progress and ETA
     const mainBar = document.getElementById('main-progress-bar');
     const overallText = document.getElementById('overall-percentage');
+    
+    // Use overall progress if provided, otherwise calculate average
+    let progressToShow;
+    if (overallProgress !== null) {
+        progressToShow = overallProgress;
+    } else {
+        // Fallback to average calculation
+        const allPercentEls = document.querySelectorAll('[id^="percent-"]');
+        let total = 0;
+        allPercentEls.forEach(el => {
+            total += parseInt(el.textContent) || 0;
+        });
+        progressToShow = Math.round(total / (allPercentEls.length || 1));
+    }
 
-    if (mainBar) mainBar.style.width = `${averageProgress}%`;
-    if (overallText) overallText.textContent = `${averageProgress}%`;
+    if (mainBar) mainBar.style.width = `${progressToShow}%`;
+    
+    // Update overall text with ETA
+    if (overallText) {
+        let displayText = `${progressToShow}%`;
+        if (etaSeconds !== null && etaSeconds > 0 && progressToShow < 100) {
+            const minutes = Math.floor(etaSeconds / 60);
+            const seconds = etaSeconds % 60;
+            if (minutes > 0) {
+                displayText += ` • ${minutes}m ${seconds}s remaining`;
+            } else {
+                displayText += ` • ${seconds}s remaining`;
+            }
+        }
+        overallText.textContent = displayText;
+    }
 
     // // 3. TRIGGER SELESAI (Hanya jika rata-rata sudah 100%)
-    // if (averageProgress >= 100) {
+    // if (progressToShow >= 100) {
     //     setTimeout(() => {
     //         showTransferCompleteUI(); // Panggil layar completion screen
     //     }, 800);
@@ -1241,6 +1339,12 @@ async function loadTransferCompleteView() {
 }
 
 async function showTransferCompleteUI() {
+    // Show desktop notification for transfer completion
+    showDesktopNotification(
+        '✅ Transfer Complete',
+        'All files have been successfully transferred'
+    );
+
     // 1. Sembunyikan Progress Bar dan remove dari DOM
     const progressOverlay = document.getElementById('transfer-progress-overlay');
     if (progressOverlay) {
@@ -1490,6 +1594,8 @@ window.showTransferProgressUI = showTransferProgressUI;
 window.updateFileProgressUI = updateFileProgressUI;
 window.endTransferSession = endTransferSession;
 window.showToast = showToast;
+window.showDesktopNotification = showDesktopNotification;
+window.requestNotificationPermission = requestNotificationPermission;
 window.showIncomingModal = showIncomingModal;
 window.closeIncomingModal = closeIncomingModal;
 window.toggleDeviceSelection = toggleDeviceSelection;
