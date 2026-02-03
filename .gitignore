@@ -102,3 +102,5 @@ logs/
 tmp/
 temp/
 gopherdrop
+.vercel
+.env*.local
