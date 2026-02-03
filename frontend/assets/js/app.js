@@ -62,6 +62,11 @@ let fileQueue = [];
 // File Transfer State (Sender)
 let transferStates = {};
 
+// Progress tracking for ETA calculation
+let transferStartTime = null;
+let totalBytesToSend = 0;
+let totalBytesSent = 0;
+
 // File Transfer State (Receiver)
 let incomingFileInfo = null;
 let incomingFileBuffer = [];
@@ -768,7 +773,28 @@ async function sendFileTo(key) {
     const file = fileQueue[state.index];
     const channel = dataChannels[key];
 
-    if (!channel || channel.readyState !== 'open') return;
+    if (!channel || channel.readyState !== 'open') {
+        console.error("Channel not ready for:", key);
+        showToast("Connection lost, unable to send file", "error");
+        return;
+    }
+
+    // Validate file is not empty
+    if (file.size === 0) {
+        console.warn(`Skipping empty file: ${file.name}`);
+        showToast(`⚠️ Skipping empty file: ${file.name}`, 'warning');
+        // Move to next file
+        state.index++;
+        setTimeout(() => sendFileTo(key), 100);
+        return;
+    }
+
+    // Initialize transfer start time on first file
+    if (!transferStartTime) {
+        transferStartTime = Date.now();
+        totalBytesToSend = fileQueue.reduce((sum, f) => sum + f.size, 0);
+        totalBytesSent = 0;
+    }
 
     // --- 1. SETUP BATAS AMAN ANTRIAN (64KB) ---
     const BUFFER_THRESHOLD = 65535;
@@ -801,18 +827,35 @@ async function sendFileTo(key) {
             const buffer = await chunk.arrayBuffer(); // Cara modern baca file
 
             // C. KIRIM
-            if (channel.readyState !== 'open') break; // Cek koneksi
+            if (channel.readyState !== 'open') {
+                throw new Error('Connection lost during transfer');
+            }
             channel.send(buffer);
 
             offset += buffer.byteLength;
+            totalBytesSent += buffer.byteLength;
 
-            // D. UPDATE UI
+            // D. UPDATE UI WITH OVERALL PROGRESS AND ETA
             const progress = Math.min(100, Math.round((offset / file.size) * 100));
-            if (window.updateFileProgressUI) window.updateFileProgressUI(file.name, progress);
+            const overallProgress = Math.min(100, Math.round((totalBytesSent / totalBytesToSend) * 100));
+            
+            // Calculate ETA with guard against division by zero
+            const elapsed = Date.now() - transferStartTime;
+            let etaSeconds = 0;
+            if (elapsed > 0 && totalBytesSent > 0) {
+                const bytesPerMs = totalBytesSent / elapsed;
+                const remainingBytes = totalBytesToSend - totalBytesSent;
+                const etaMs = bytesPerMs > 0 ? remainingBytes / bytesPerMs : 0;
+                etaSeconds = Math.ceil(etaMs / 1000);
+            }
+            
+            if (window.updateFileProgressUI) {
+                window.updateFileProgressUI(file.name, progress, key, overallProgress, etaSeconds);
+            }
         }
 
         // --- 4. SELESAI KIRIM FILE INI ---
-        showToast(`Sent to device`, 'success');
+        showToast(`✓ Sent "${file.name}"`, 'success');
 
         // Naikkan index & Lanjut ke file berikutnya
         state.index++;
@@ -822,7 +865,11 @@ async function sendFileTo(key) {
 
     } catch (err) {
         console.error("Error sending file:", err);
-        showToast("Transfer error", "error");
+        showToast(`❌ Failed to send "${file.name}" - ${err.message}`, "error");
+        
+        // Move to next file after error to prevent blocking
+        state.index++;
+        setTimeout(() => sendFileTo(key), 500);
     }
 }
 
@@ -1060,6 +1107,11 @@ function resetTransferState(clearFiles = false) {
     dataChannels = {};
     acceptedPublicKeys.clear();
     transferStates = {};
+    
+    // Reset progress tracking
+    transferStartTime = null;
+    totalBytesToSend = 0;
+    totalBytesSent = 0;
 
     currentTransactionId = null;
     pendingTransactionId = null;

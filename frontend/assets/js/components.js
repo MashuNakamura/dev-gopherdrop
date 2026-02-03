@@ -171,11 +171,42 @@ function toggleDeviceSelection(deviceId) {
     if (device) {
         device.checked = !device.checked;
         renderDevicesWithPagination();
+        updateSelectedDeviceCounter();
     }
 }
 
 function getSelectedDevices() {
     return window.currentDevices.filter(d => d.checked);
+}
+
+// Update selected device counter badge
+function updateSelectedDeviceCounter() {
+    const selectedDevices = getSelectedDevices();
+    const count = selectedDevices.length;
+    
+    // Update counter badge if it exists
+    let counterBadge = document.getElementById('selected-device-counter');
+    
+    if (count > 0) {
+        // Create badge if it doesn't exist
+        if (!counterBadge) {
+            counterBadge = document.createElement('div');
+            counterBadge.id = 'selected-device-counter';
+            counterBadge.className = 'fixed bottom-20 lg:bottom-8 right-4 lg:right-8 bg-primary text-white px-5 py-3 rounded-full shadow-lg shadow-primary/30 flex items-center gap-2 z-40 animate-bounce';
+            document.body.appendChild(counterBadge);
+        }
+        
+        counterBadge.innerHTML = `
+            <span class="material-symbols-outlined text-xl">check_circle</span>
+            <span class="font-bold">${count} device${count > 1 ? 's' : ''} selected</span>
+        `;
+        counterBadge.style.display = 'flex';
+    } else {
+        // Hide badge when no devices selected
+        if (counterBadge) {
+            counterBadge.style.display = 'none';
+        }
+    }
 }
 
 // ==========================================
@@ -526,12 +557,86 @@ function showToast(message, type = 'info') {
 }
 
 // ==========================================
+// Desktop Notification
+// ==========================================
+
+let notificationPermission = null;
+
+// Request notification permission on page load (only once)
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        return false;
+    }
+    
+    if (Notification.permission === 'granted') {
+        notificationPermission = 'granted';
+        return true;
+    }
+    
+    if (Notification.permission !== 'denied') {
+        try {
+            const permission = await Notification.requestPermission();
+            notificationPermission = permission;
+            return permission === 'granted';
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+            return false;
+        }
+    }
+    
+    return false;
+}
+
+// Show desktop notification (only for important events)
+function showDesktopNotification(title, body, icon = null) {
+    // Only show if granted and browser supports it
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+    }
+    
+    try {
+        const notification = new Notification(title, {
+            body: body,
+            icon: icon || './assets/img/logo.png',
+            badge: './assets/img/logo.png',
+            tag: 'gopherdrop-notification', // Replace previous notifications with same tag
+            requireInteraction: false,
+            silent: false
+        });
+        
+        // Auto close after 5 seconds
+        setTimeout(() => notification.close(), 5000);
+        
+        // Focus window when clicked
+        notification.onclick = function() {
+            window.focus();
+            notification.close();
+        };
+    } catch (error) {
+        console.error('Error showing notification:', error);
+    }
+}
+
+// Initialize notification permission state on page load
+document.addEventListener('DOMContentLoaded', () => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        notificationPermission = 'granted';
+    }
+});
+
+// ==========================================
 // Incoming Request UI Logic
 // ==========================================
 
 function showIncomingModal(senderName, files) {
     const modal = document.getElementById('incoming-request-modal');
     if (!modal) return;
+
+    // Show desktop notification for incoming transfer
+    showDesktopNotification(
+        '📥 Incoming File Transfer',
+        `${senderName} wants to send you ${files.length} file(s)`
+    );
 
     // 1. Update Nama & Jumlah
     document.getElementById('incoming-sender').textContent = senderName;
@@ -788,7 +893,7 @@ function renderMeshNetwork(count, container = null) {
 
 const fileProgressMap = {};
 
-window.updateFileProgressUI = function (fileName, percentage, deviceId = 'general') {
+window.updateFileProgressUI = function (fileName, percentage, deviceId = 'general', overallProgress = null, etaSeconds = null) {
     const safeName = fileName.replace(/[^a-zA-Z0-9]/g, '');
 
     if (!fileProgressMap[safeName]) fileProgressMap[safeName] = 0;
@@ -817,25 +922,43 @@ window.updateFileProgressUI = function (fileName, percentage, deviceId = 'genera
     if (percentEl) percentEl.textContent = `${Math.round(percentage)}%`;
     if (barEl) barEl.style.width = `${percentage}%`;
 
-    // 2. UPDATE TOP BAR (Agar Gak Dianggurin)
-    // Ambil semua persentase file yang ada di layar, lalu hitung rata-ratanya
-    const allPercentEls = document.querySelectorAll('[id^="percent-"]');
-    let total = 0;
-    allPercentEls.forEach(el => {
-        total += parseInt(el.textContent) || 0;
-    });
-
-    const averageProgress = Math.round(total / (allPercentEls.length || 1));
-
-    // Update Progress Bar Besar di Atas (Miro Gambar 4)
+    // 2. UPDATE TOP BAR with Overall Progress and ETA
     const mainBar = document.getElementById('main-progress-bar');
     const overallText = document.getElementById('overall-percentage');
+    
+    // Use overall progress if provided, otherwise calculate average
+    let progressToShow;
+    if (overallProgress !== null) {
+        progressToShow = overallProgress;
+    } else {
+        // Fallback to average calculation
+        const allPercentEls = document.querySelectorAll('[id^="percent-"]');
+        let total = 0;
+        allPercentEls.forEach(el => {
+            total += parseInt(el.textContent) || 0;
+        });
+        progressToShow = Math.round(total / (allPercentEls.length || 1));
+    }
 
-    if (mainBar) mainBar.style.width = `${averageProgress}%`;
-    if (overallText) overallText.textContent = `${averageProgress}%`;
+    if (mainBar) mainBar.style.width = `${progressToShow}%`;
+    
+    // Update overall text with ETA
+    if (overallText) {
+        let displayText = `${progressToShow}%`;
+        if (etaSeconds !== null && etaSeconds > 0 && progressToShow < 100) {
+            const minutes = Math.floor(etaSeconds / 60);
+            const seconds = etaSeconds % 60;
+            if (minutes > 0) {
+                displayText += ` • ${minutes}m ${seconds}s remaining`;
+            } else {
+                displayText += ` • ${seconds}s remaining`;
+            }
+        }
+        overallText.textContent = displayText;
+    }
 
     // // 3. TRIGGER SELESAI (Hanya jika rata-rata sudah 100%)
-    // if (averageProgress >= 100) {
+    // if (progressToShow >= 100) {
     //     setTimeout(() => {
     //         showTransferCompleteUI(); // Panggil layar completion screen
     //     }, 800);
@@ -921,32 +1044,191 @@ function initFileUpload() {
 
 // 4. Central File Handler
 function handleFiles(files) {
+    // Filter out empty files
+    const validFiles = Array.from(files).filter(file => {
+        if (file.size === 0) {
+            if (window.showToast) window.showToast(`❌ "${file.name}" is empty and will be skipped`, 'warning');
+            return false;
+        }
+        return true;
+    });
+
+    if (validFiles.length === 0) {
+        if (window.showToast) window.showToast('No valid files selected', 'error');
+        return;
+    }
 
     // Kirim ke App.js
     if (window.handleFilesSelected) {
-        window.handleFilesSelected(files);
+        window.handleFilesSelected(validFiles);
 
         // Save to IndexedDB for persistence
         if (window.saveFilesToDB) {
-            window.saveFilesToDB(Array.from(files)).then(() => {
+            window.saveFilesToDB(validFiles).then(() => {
             }).catch(err => {
             });
         }
 
         // UI Feedback
-        if (window.showToast) window.showToast(`${files.length} files READY to send!`, 'success');
+        if (window.showToast) window.showToast(`${validFiles.length} files READY to send!`, 'success');
 
         // Update Teks di Kotak Upload
         const titleEl = document.querySelector('#upload-zone h4');
         const descEl = document.querySelector('#upload-zone p');
 
         if (titleEl) {
-            titleEl.textContent = `${files.length} File(s) Selected`;
+            titleEl.textContent = `${validFiles.length} File(s) Selected`;
             titleEl.classList.add('text-primary');
         }
         if (descEl) descEl.textContent = "Click 'Send Now' to proceed.";
 
+        // Show file preview
+        renderFilePreview(validFiles);
+
     } else {
+    }
+}
+
+// Clear all selected files
+function clearAllFiles() {
+    // Clear from session and IndexedDB
+    sessionStorage.removeItem('gdrop_transfer_files');
+    if (window.clearFilesFromDB) {
+        window.clearFilesFromDB();
+    }
+    
+    // Reset file queue in app.js
+    if (window.handleFilesSelected) {
+        window.handleFilesSelected([]);
+    }
+    
+    // Reset UI
+    const titleEl = document.querySelector('#upload-zone h4');
+    const descEl = document.querySelector('#upload-zone p');
+    
+    if (titleEl) {
+        titleEl.textContent = 'Ready to send files?';
+        titleEl.classList.remove('text-primary');
+    }
+    if (descEl) descEl.textContent = "Drag & drop files here or click button to browse";
+    
+    // Hide file preview
+    const previewContainer = document.getElementById('file-preview-list');
+    if (previewContainer) {
+        previewContainer.innerHTML = '';
+    }
+    
+    if (window.showToast) window.showToast('All files cleared', 'info');
+}
+
+// Format file size helper
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Get file icon helper
+function getFileIcon(type) {
+    if (!type) return 'description';
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'movie';
+    if (type.startsWith('audio/')) return 'audio_file';
+    if (type.includes('pdf')) return 'picture_as_pdf';
+    if (type.includes('zip') || type.includes('rar') || type.includes('7z')) return 'folder_zip';
+    if (type.includes('document') || type.includes('word')) return 'description';
+    if (type.includes('sheet') || type.includes('excel')) return 'table_chart';
+    return 'draft';
+}
+
+// Render file preview list
+function renderFilePreview(files) {
+    let previewContainer = document.getElementById('file-preview-list');
+    
+    // Create container if it doesn't exist
+    if (!previewContainer) {
+        const uploadZoneContainer = document.getElementById('upload-zone-container');
+        if (!uploadZoneContainer) return;
+        
+        previewContainer = document.createElement('div');
+        previewContainer.id = 'file-preview-list';
+        previewContainer.className = 'mt-4';
+        uploadZoneContainer.appendChild(previewContainer);
+    }
+    
+    if (!files || files.length === 0) {
+        previewContainer.innerHTML = '';
+        return;
+    }
+    
+    // Generate preview HTML
+    const filesArray = Array.from(files);
+    const previewHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-slate-700 dark:text-slate-300">Selected Files (${filesArray.length})</h4>
+                <button onclick="window.clearAllFiles()" class="text-xs font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-base">delete</span>
+                    Clear All
+                </button>
+            </div>
+            <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                ${filesArray.map((file, index) => `
+                    <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-lg">${getFileIcon(file.type)}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm text-slate-800 dark:text-white truncate">${file.name}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${formatFileSize(file.size)}</p>
+                        </div>
+                        <button onclick="window.removeFileFromPreview(${index})" class="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0" title="Remove file">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    previewContainer.innerHTML = previewHTML;
+}
+
+// Remove individual file from preview
+async function removeFileFromPreview(index) {
+    // Load current files from IndexedDB
+    const files = await window.loadFilesFromDB();
+    
+    if (!files || index < 0 || index >= files.length) return;
+    
+    // Remove the file at index
+    files.splice(index, 1);
+    
+    if (files.length === 0) {
+        clearAllFiles();
+    } else {
+        // Save back to IndexedDB
+        if (window.saveFilesToDB) {
+            await window.saveFilesToDB(files);
+        }
+        
+        // Update app.js state
+        if (window.handleFilesSelected) {
+            window.handleFilesSelected(files);
+        }
+        
+        // Update UI
+        const titleEl = document.querySelector('#upload-zone h4');
+        if (titleEl) {
+            titleEl.textContent = `${files.length} File(s) Selected`;
+        }
+        
+        // Re-render preview
+        renderFilePreview(files);
+        
+        if (window.showToast) window.showToast('File removed', 'info');
     }
 }
 
@@ -974,6 +1256,9 @@ async function loadSavedFiles() {
                 titleEl.classList.add('text-primary');
             }
             if (descEl) descEl.textContent = "Files restored from previous session.";
+
+            // Show file preview
+            renderFilePreview(savedFiles);
 
             if (window.showToast) {
                 window.showToast(`${savedFiles.length} file(s) restored from previous session!`, 'info');
@@ -1048,6 +1333,12 @@ async function loadTransferCompleteView() {
 }
 
 async function showTransferCompleteUI() {
+    // Show desktop notification for transfer completion
+    showDesktopNotification(
+        '✅ Transfer Complete',
+        'All files have been successfully transferred'
+    );
+
     // 1. Sembunyikan Progress Bar dan remove dari DOM
     const progressOverlay = document.getElementById('transfer-progress-overlay');
     if (progressOverlay) {
@@ -1232,7 +1523,20 @@ window.sendDirectlyToSelection = function () {
         return;
     }
 
-    proceedDirectTransfer(selectedDevices);
+    // Show confirmation dialog before sending
+    const files = JSON.parse(filesData);
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const formattedSize = formatFileSize(totalSize);
+    
+    const confirmed = confirm(
+        `Send ${files.length} file(s) to ${selectedDevices.length} device(s)?\n\n` +
+        `Total size: ${formattedSize}\n\n` +
+        `Click OK to proceed or Cancel to go back.`
+    );
+    
+    if (confirmed) {
+        proceedDirectTransfer(selectedDevices);
+    }
 };
 
 // Helper untuk eksekusi transfer
@@ -1244,7 +1548,13 @@ function proceedDirectTransfer(selectedDevices) {
 
     if (sendBtn) {
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Connecting...';
+    }
+
+    // Show connecting toast
+    if (window.showToast) {
+        const deviceNames = selectedDevices.map(d => d.name).join(', ');
+        window.showToast(`🔄 Establishing connection with ${selectedDevices.length > 1 ? 'devices' : deviceNames}...`, 'info');
     }
 
     // Reset state transfer sebelumnya jika ada
@@ -1260,7 +1570,13 @@ function proceedDirectTransfer(selectedDevices) {
     // 3. Mulai proses transfer (panggil fungsi core di app.js)
     if (window.startTransferProcess) {
         window.startTransferProcess();
-        if (window.showToast) window.showToast(`Sending to ${sessionName}...`, 'success');
+        
+        // Update button after a delay (connection establishing)
+        setTimeout(() => {
+            if (sendBtn) {
+                sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+            }
+        }, 1000);
     }
 }
 
@@ -1272,6 +1588,8 @@ window.showTransferProgressUI = showTransferProgressUI;
 window.updateFileProgressUI = updateFileProgressUI;
 window.endTransferSession = endTransferSession;
 window.showToast = showToast;
+window.showDesktopNotification = showDesktopNotification;
+window.requestNotificationPermission = requestNotificationPermission;
 window.showIncomingModal = showIncomingModal;
 window.closeIncomingModal = closeIncomingModal;
 window.toggleDeviceSelection = toggleDeviceSelection;
@@ -1286,4 +1604,6 @@ window.closeFileUploadPrompt = closeFileUploadPrompt;
 window.triggerPromptFileSelect = triggerPromptFileSelect;
 window.proceedDirectTransfer = proceedDirectTransfer;
 window.sendDirectlyToSelection = sendDirectlyToSelection;
+window.clearAllFiles = clearAllFiles;
+window.removeFileFromPreview = removeFileFromPreview;
 window.showTransferCompleteUI = showTransferCompleteUI;
