@@ -59,7 +59,7 @@ While GopherDrop is optimized for reliable, low-latency transfers within a Local
 1. Clone the repository
 ```bash
 git clone https://github.com/MashuNakamura/dev-gopherdrop.git
-cd gopherdrop
+cd dev-gopherdrop
 ```
 
 2.  **Install dependencies**
