@@ -171,7 +171,7 @@ function toggleDeviceSelection(deviceId) {
     if (device) {
         device.checked = !device.checked;
         renderDevicesWithPagination();
-        updateSelectedDeviceCounter();
+        // updateSelectedDeviceCounter();
     }
 }
 
@@ -179,35 +179,35 @@ function getSelectedDevices() {
     return window.currentDevices.filter(d => d.checked);
 }
 
-// Update selected device counter badge
-function updateSelectedDeviceCounter() {
-    const selectedDevices = getSelectedDevices();
-    const count = selectedDevices.length;
-    
-    // Update counter badge if it exists
-    let counterBadge = document.getElementById('selected-device-counter');
-    
-    if (count > 0) {
-        // Create badge if it doesn't exist
-        if (!counterBadge) {
-            counterBadge = document.createElement('div');
-            counterBadge.id = 'selected-device-counter';
-            counterBadge.className = 'fixed bottom-20 lg:bottom-8 right-4 lg:right-8 bg-primary text-white px-5 py-3 rounded-full shadow-lg shadow-primary/30 flex items-center gap-2 z-40 animate-bounce';
-            document.body.appendChild(counterBadge);
-        }
-        
-        counterBadge.innerHTML = `
-            <span class="material-symbols-outlined text-xl">check_circle</span>
-            <span class="font-bold">${count} device${count > 1 ? 's' : ''} selected</span>
-        `;
-        counterBadge.style.display = 'flex';
-    } else {
-        // Hide badge when no devices selected
-        if (counterBadge) {
-            counterBadge.style.display = 'none';
-        }
-    }
-}
+// // Update selected device counter badge
+// function updateSelectedDeviceCounter() {
+//     const selectedDevices = getSelectedDevices();
+//     const count = selectedDevices.length;
+
+//     // Update counter badge if it exists
+//     let counterBadge = document.getElementById('selected-device-counter');
+
+//     if (count > 0) {
+//         // Create badge if it doesn't exist
+//         if (!counterBadge) {
+//             counterBadge = document.createElement('div');
+//             counterBadge.id = 'selected-device-counter';
+//             counterBadge.className = 'fixed bottom-20 lg:bottom-8 right-4 lg:right-8 bg-primary text-white px-5 py-3 rounded-full shadow-lg shadow-primary/30 flex items-center gap-2 z-40 animate-bounce';
+//             document.body.appendChild(counterBadge);
+//         }
+
+//         counterBadge.innerHTML = `
+//             <span class="material-symbols-outlined text-xl">check_circle</span>
+//             <span class="font-bold">${count} device${count > 1 ? 's' : ''} selected</span>
+//         `;
+//         counterBadge.style.display = 'flex';
+//     } else {
+//         // Hide badge when no devices selected
+//         if (counterBadge) {
+//             counterBadge.style.display = 'none';
+//         }
+//     }
+// }
 
 // ==========================================
 // Modal & Group Logic
@@ -567,12 +567,12 @@ async function requestNotificationPermission() {
     if (!('Notification' in window)) {
         return false;
     }
-    
+
     if (Notification.permission === 'granted') {
         notificationPermission = 'granted';
         return true;
     }
-    
+
     if (Notification.permission !== 'denied') {
         try {
             const permission = await Notification.requestPermission();
@@ -583,7 +583,7 @@ async function requestNotificationPermission() {
             return false;
         }
     }
-    
+
     return false;
 }
 
@@ -593,7 +593,7 @@ function showDesktopNotification(title, body, icon = null) {
     if (!('Notification' in window) || Notification.permission !== 'granted') {
         return;
     }
-    
+
     try {
         const notification = new Notification(title, {
             body: body,
@@ -603,12 +603,12 @@ function showDesktopNotification(title, body, icon = null) {
             requireInteraction: false,
             silent: false
         });
-        
+
         // Auto close after 5 seconds
         setTimeout(() => notification.close(), 5000);
-        
+
         // Focus window when clicked
-        notification.onclick = function() {
+        notification.onclick = function () {
             window.focus();
             notification.close();
         };
@@ -925,7 +925,7 @@ window.updateFileProgressUI = function (fileName, percentage, deviceId = 'genera
     // 2. UPDATE TOP BAR with Overall Progress and ETA
     const mainBar = document.getElementById('main-progress-bar');
     const overallText = document.getElementById('overall-percentage');
-    
+
     // Use overall progress if provided, otherwise calculate average
     let progressToShow;
     if (overallProgress !== null) {
@@ -941,7 +941,7 @@ window.updateFileProgressUI = function (fileName, percentage, deviceId = 'genera
     }
 
     if (mainBar) mainBar.style.width = `${progressToShow}%`;
-    
+
     // Update overall text with ETA
     if (overallText) {
         let displayText = `${progressToShow}%`;
@@ -1096,28 +1096,28 @@ function clearAllFiles() {
     if (window.clearFilesFromDB) {
         window.clearFilesFromDB();
     }
-    
+
     // Reset file queue in app.js
     if (window.handleFilesSelected) {
         window.handleFilesSelected([]);
     }
-    
+
     // Reset UI
     const titleEl = document.querySelector('#upload-zone h4');
     const descEl = document.querySelector('#upload-zone p');
-    
+
     if (titleEl) {
         titleEl.textContent = 'Ready to send files?';
         titleEl.classList.remove('text-primary');
     }
     if (descEl) descEl.textContent = "Drag & drop files here or click button to browse";
-    
+
     // Hide file preview
     const previewContainer = document.getElementById('file-preview-list');
     if (previewContainer) {
         previewContainer.innerHTML = '';
     }
-    
+
     if (window.showToast) window.showToast('All files cleared', 'info');
 }
 
@@ -1146,23 +1146,23 @@ function getFileIcon(type) {
 // Render file preview list
 function renderFilePreview(files) {
     let previewContainer = document.getElementById('file-preview-list');
-    
+
     // Create container if it doesn't exist
     if (!previewContainer) {
         const uploadZoneContainer = document.getElementById('upload-zone-container');
         if (!uploadZoneContainer) return;
-        
+
         previewContainer = document.createElement('div');
         previewContainer.id = 'file-preview-list';
         previewContainer.className = 'mt-4';
         uploadZoneContainer.appendChild(previewContainer);
     }
-    
+
     if (!files || files.length === 0) {
         previewContainer.innerHTML = '';
         return;
     }
-    
+
     // Generate preview HTML
     const filesArray = Array.from(files);
     const previewHTML = `
@@ -1192,7 +1192,7 @@ function renderFilePreview(files) {
             </div>
         </div>
     `;
-    
+
     previewContainer.innerHTML = previewHTML;
 }
 
@@ -1200,12 +1200,12 @@ function renderFilePreview(files) {
 async function removeFileFromPreview(index) {
     // Load current files from IndexedDB
     const files = await window.loadFilesFromDB();
-    
+
     if (!files || index < 0 || index >= files.length) return;
-    
+
     // Remove the file at index
     files.splice(index, 1);
-    
+
     if (files.length === 0) {
         clearAllFiles();
     } else {
@@ -1213,21 +1213,21 @@ async function removeFileFromPreview(index) {
         if (window.saveFilesToDB) {
             await window.saveFilesToDB(files);
         }
-        
+
         // Update app.js state
         if (window.handleFilesSelected) {
             window.handleFilesSelected(files);
         }
-        
+
         // Update UI
         const titleEl = document.querySelector('#upload-zone h4');
         if (titleEl) {
             titleEl.textContent = `${files.length} File(s) Selected`;
         }
-        
+
         // Re-render preview
         renderFilePreview(files);
-        
+
         if (window.showToast) window.showToast('File removed', 'info');
     }
 }
@@ -1503,8 +1503,87 @@ async function showTransferCompleteUI() {
     }
 }
 
+// ==========================================
+// TRANSFER CONFIRMATION MODAL (UI CANTIK)
+// ==========================================
+
+function showTransferConfirmModal(fileCount, totalSize, deviceCount, onConfirm) {
+    let modal = document.getElementById('transfer-confirm-modal');
+
+    // Kalau belum ada, create elemennya (sekali aja)
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'transfer-confirm-modal';
+        modal.className = 'fixed inset-0 z-[100] flex items-center justify-center hidden';
+
+        // HTML Inner (Mirip Delete Modal tapi tema BIRU/PRIMARY 🚀)
+        modal.innerHTML = `
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeTransferConfirmModal()"></div>
+            <div class="relative bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl z-10 text-center transition-all scale-95 opacity-0 transform" id="transfer-modal-content">
+                
+                <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-3xl text-primary">rocket_launch</span>
+                </div>
+
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Ready to Send?</h3>
+                
+                <p class="text-slate-500 dark:text-slate-400 mb-6 text-sm leading-relaxed" id="transfer-modal-desc">
+                    </p>
+
+                <div class="flex gap-3">
+                    <button onclick="closeTransferConfirmModal()" class="flex-1 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
+                        Cancel
+                    </button>
+                    <button id="btn-confirm-transfer" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:brightness-110 shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
+                        <span>Send Now</span>
+                        <span class="material-symbols-outlined text-sm">send</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Update Text Dinamis
+    const descEl = document.getElementById('transfer-modal-desc');
+    descEl.innerHTML = `Sending <strong>${fileCount} file(s)</strong> <br>Total size: <strong>${totalSize}</strong> <br>to <strong>${deviceCount} device(s)</strong>.`;
+
+    // Pasang Action ke Tombol Send (Clone node biar event listener gak numpuk)
+    const btn = document.getElementById('btn-confirm-transfer');
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.onclick = () => {
+        closeTransferConfirmModal();
+        onConfirm(); // Callback fungsi kirim
+    };
+
+    // Animasi Muncul
+    modal.classList.remove('hidden');
+    const content = document.getElementById('transfer-modal-content');
+    setTimeout(() => {
+        content.classList.remove('scale-95', 'opacity-0');
+        content.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+// Fungsi Tutup Modal
+window.closeTransferConfirmModal = function () {
+    const modal = document.getElementById('transfer-confirm-modal');
+    const content = document.getElementById('transfer-modal-content');
+
+    if (content) {
+        content.classList.remove('scale-100', 'opacity-100');
+        content.classList.add('scale-95', 'opacity-0');
+    }
+
+    setTimeout(() => {
+        if (modal) modal.classList.add('hidden');
+    }, 200);
+};
+
 window.sendDirectlyToSelection = function () {
-    const selectedDevices = getSelectedDevices();
+    const selectedDevices = getSelectedDevices(); // Pastikan fungsi helper ini ada
 
     if (selectedDevices.length === 0) {
         if (window.showToast) window.showToast('Please select at least one device', 'warning');
@@ -1516,27 +1595,29 @@ window.sendDirectlyToSelection = function () {
     const hasFiles = filesData && JSON.parse(filesData).length > 0;
 
     if (!hasFiles) {
-        // Jika tidak ada file, munculkan prompt upload, lalu lanjut kirim
+        // Jika tidak ada file, munculkan prompt upload
         showFileUploadPrompt(() => {
-            proceedDirectTransfer(selectedDevices);
+            // Setelah file dipilih, panggil fungsi ini lagi (rekursif)
+            window.sendDirectlyToSelection();
         });
         return;
     }
 
-    // Show confirmation dialog before sending
+    // Parse data file
     const files = JSON.parse(filesData);
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    const formattedSize = formatFileSize(totalSize);
-    
-    const confirmed = confirm(
-        `Send ${files.length} file(s) to ${selectedDevices.length} device(s)?\n\n` +
-        `Total size: ${formattedSize}\n\n` +
-        `Click OK to proceed or Cancel to go back.`
+    const formattedSize = formatFileSize ? formatFileSize(totalSize) : (totalSize / 1024).toFixed(1) + ' KB'; // Fallback format
+
+    // Ganti Confirm() bawaan dengan Modal UI Cantik
+    showTransferConfirmModal(
+        files.length,
+        formattedSize,
+        selectedDevices.length,
+        () => {
+            // Ini dijalankan kalau user klik "Send Now" di modal
+            proceedDirectTransfer(selectedDevices);
+        }
     );
-    
-    if (confirmed) {
-        proceedDirectTransfer(selectedDevices);
-    }
 };
 
 // Helper untuk eksekusi transfer
@@ -1570,7 +1651,7 @@ function proceedDirectTransfer(selectedDevices) {
     // 3. Mulai proses transfer (panggil fungsi core di app.js)
     if (window.startTransferProcess) {
         window.startTransferProcess();
-        
+
         // Update button after a delay (connection establishing)
         setTimeout(() => {
             if (sendBtn) {
