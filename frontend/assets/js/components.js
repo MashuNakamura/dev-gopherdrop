@@ -171,11 +171,42 @@ function toggleDeviceSelection(deviceId) {
     if (device) {
         device.checked = !device.checked;
         renderDevicesWithPagination();
+        updateSelectedDeviceCounter();
     }
 }
 
 function getSelectedDevices() {
     return window.currentDevices.filter(d => d.checked);
+}
+
+// Update selected device counter badge
+function updateSelectedDeviceCounter() {
+    const selectedDevices = getSelectedDevices();
+    const count = selectedDevices.length;
+    
+    // Update counter badge if it exists
+    let counterBadge = document.getElementById('selected-device-counter');
+    
+    if (count > 0) {
+        // Create badge if it doesn't exist
+        if (!counterBadge) {
+            counterBadge = document.createElement('div');
+            counterBadge.id = 'selected-device-counter';
+            counterBadge.className = 'fixed bottom-20 lg:bottom-8 right-4 lg:right-8 bg-primary text-white px-5 py-3 rounded-full shadow-lg shadow-primary/30 flex items-center gap-2 z-40 animate-bounce';
+            document.body.appendChild(counterBadge);
+        }
+        
+        counterBadge.innerHTML = `
+            <span class="material-symbols-outlined text-xl">check_circle</span>
+            <span class="font-bold">${count} device${count > 1 ? 's' : ''} selected</span>
+        `;
+        counterBadge.style.display = 'flex';
+    } else {
+        // Hide badge when no devices selected
+        if (counterBadge) {
+            counterBadge.style.display = 'none';
+        }
+    }
 }
 
 // ==========================================
@@ -921,32 +952,191 @@ function initFileUpload() {
 
 // 4. Central File Handler
 function handleFiles(files) {
+    // Filter out empty files
+    const validFiles = Array.from(files).filter(file => {
+        if (file.size === 0) {
+            if (window.showToast) window.showToast(`❌ "${file.name}" is empty and will be skipped`, 'warning');
+            return false;
+        }
+        return true;
+    });
+
+    if (validFiles.length === 0) {
+        if (window.showToast) window.showToast('No valid files selected', 'error');
+        return;
+    }
 
     // Kirim ke App.js
     if (window.handleFilesSelected) {
-        window.handleFilesSelected(files);
+        window.handleFilesSelected(validFiles);
 
         // Save to IndexedDB for persistence
         if (window.saveFilesToDB) {
-            window.saveFilesToDB(Array.from(files)).then(() => {
+            window.saveFilesToDB(validFiles).then(() => {
             }).catch(err => {
             });
         }
 
         // UI Feedback
-        if (window.showToast) window.showToast(`${files.length} files READY to send!`, 'success');
+        if (window.showToast) window.showToast(`${validFiles.length} files READY to send!`, 'success');
 
         // Update Teks di Kotak Upload
         const titleEl = document.querySelector('#upload-zone h4');
         const descEl = document.querySelector('#upload-zone p');
 
         if (titleEl) {
-            titleEl.textContent = `${files.length} File(s) Selected`;
+            titleEl.textContent = `${validFiles.length} File(s) Selected`;
             titleEl.classList.add('text-primary');
         }
         if (descEl) descEl.textContent = "Click 'Send Now' to proceed.";
 
+        // Show file preview
+        renderFilePreview(validFiles);
+
     } else {
+    }
+}
+
+// Clear all selected files
+function clearAllFiles() {
+    // Clear from session and IndexedDB
+    sessionStorage.removeItem('gdrop_transfer_files');
+    if (window.clearFilesFromDB) {
+        window.clearFilesFromDB();
+    }
+    
+    // Reset file queue in app.js
+    if (window.handleFilesSelected) {
+        window.handleFilesSelected([]);
+    }
+    
+    // Reset UI
+    const titleEl = document.querySelector('#upload-zone h4');
+    const descEl = document.querySelector('#upload-zone p');
+    
+    if (titleEl) {
+        titleEl.textContent = 'Ready to send files?';
+        titleEl.classList.remove('text-primary');
+    }
+    if (descEl) descEl.textContent = "Drag & drop files here or click button to browse";
+    
+    // Hide file preview
+    const previewContainer = document.getElementById('file-preview-list');
+    if (previewContainer) {
+        previewContainer.innerHTML = '';
+    }
+    
+    if (window.showToast) window.showToast('All files cleared', 'info');
+}
+
+// Format file size helper
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Get file icon helper
+function getFileIcon(type) {
+    if (!type) return 'description';
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'movie';
+    if (type.startsWith('audio/')) return 'audio_file';
+    if (type.includes('pdf')) return 'picture_as_pdf';
+    if (type.includes('zip') || type.includes('rar') || type.includes('7z')) return 'folder_zip';
+    if (type.includes('document') || type.includes('word')) return 'description';
+    if (type.includes('sheet') || type.includes('excel')) return 'table_chart';
+    return 'draft';
+}
+
+// Render file preview list
+function renderFilePreview(files) {
+    let previewContainer = document.getElementById('file-preview-list');
+    
+    // Create container if it doesn't exist
+    if (!previewContainer) {
+        const uploadZoneContainer = document.getElementById('upload-zone-container');
+        if (!uploadZoneContainer) return;
+        
+        previewContainer = document.createElement('div');
+        previewContainer.id = 'file-preview-list';
+        previewContainer.className = 'mt-4';
+        uploadZoneContainer.appendChild(previewContainer);
+    }
+    
+    if (!files || files.length === 0) {
+        previewContainer.innerHTML = '';
+        return;
+    }
+    
+    // Generate preview HTML
+    const filesArray = Array.from(files);
+    const previewHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-slate-700 dark:text-slate-300">Selected Files (${filesArray.length})</h4>
+                <button onclick="window.clearAllFiles()" class="text-xs font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-base">delete</span>
+                    Clear All
+                </button>
+            </div>
+            <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                ${filesArray.map((file, index) => `
+                    <div class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                            <span class="material-symbols-outlined text-lg">${getFileIcon(file.type)}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm text-slate-800 dark:text-white truncate">${file.name}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">${formatFileSize(file.size)}</p>
+                        </div>
+                        <button onclick="window.removeFileFromPreview(${index})" class="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors flex-shrink-0" title="Remove file">
+                            <span class="material-symbols-outlined text-lg">close</span>
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    previewContainer.innerHTML = previewHTML;
+}
+
+// Remove individual file from preview
+async function removeFileFromPreview(index) {
+    // Load current files from IndexedDB
+    const files = await window.loadFilesFromDB();
+    
+    if (!files || index < 0 || index >= files.length) return;
+    
+    // Remove the file at index
+    files.splice(index, 1);
+    
+    if (files.length === 0) {
+        clearAllFiles();
+    } else {
+        // Save back to IndexedDB
+        if (window.saveFilesToDB) {
+            await window.saveFilesToDB(files);
+        }
+        
+        // Update app.js state
+        if (window.handleFilesSelected) {
+            window.handleFilesSelected(files);
+        }
+        
+        // Update UI
+        const titleEl = document.querySelector('#upload-zone h4');
+        if (titleEl) {
+            titleEl.textContent = `${files.length} File(s) Selected`;
+        }
+        
+        // Re-render preview
+        renderFilePreview(files);
+        
+        if (window.showToast) window.showToast('File removed', 'info');
     }
 }
 
@@ -974,6 +1164,9 @@ async function loadSavedFiles() {
                 titleEl.classList.add('text-primary');
             }
             if (descEl) descEl.textContent = "Files restored from previous session.";
+
+            // Show file preview
+            renderFilePreview(savedFiles);
 
             if (window.showToast) {
                 window.showToast(`${savedFiles.length} file(s) restored from previous session!`, 'info');
@@ -1232,7 +1425,20 @@ window.sendDirectlyToSelection = function () {
         return;
     }
 
-    proceedDirectTransfer(selectedDevices);
+    // Show confirmation dialog before sending
+    const files = JSON.parse(filesData);
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const formattedSize = formatFileSize(totalSize);
+    
+    const confirmed = confirm(
+        `Send ${files.length} file(s) to ${selectedDevices.length} device(s)?\n\n` +
+        `Total size: ${formattedSize}\n\n` +
+        `Click OK to proceed or Cancel to go back.`
+    );
+    
+    if (confirmed) {
+        proceedDirectTransfer(selectedDevices);
+    }
 };
 
 // Helper untuk eksekusi transfer
@@ -1244,7 +1450,13 @@ function proceedDirectTransfer(selectedDevices) {
 
     if (sendBtn) {
         sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+        sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Connecting...';
+    }
+
+    // Show connecting toast
+    if (window.showToast) {
+        const deviceNames = selectedDevices.map(d => d.name).join(', ');
+        window.showToast(`🔄 Establishing connection with ${selectedDevices.length > 1 ? 'devices' : deviceNames}...`, 'info');
     }
 
     // Reset state transfer sebelumnya jika ada
@@ -1260,7 +1472,13 @@ function proceedDirectTransfer(selectedDevices) {
     // 3. Mulai proses transfer (panggil fungsi core di app.js)
     if (window.startTransferProcess) {
         window.startTransferProcess();
-        if (window.showToast) window.showToast(`Sending to ${sessionName}...`, 'success');
+        
+        // Update button after a delay (connection establishing)
+        setTimeout(() => {
+            if (sendBtn) {
+                sendBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+            }
+        }, 1000);
     }
 }
 
@@ -1286,4 +1504,6 @@ window.closeFileUploadPrompt = closeFileUploadPrompt;
 window.triggerPromptFileSelect = triggerPromptFileSelect;
 window.proceedDirectTransfer = proceedDirectTransfer;
 window.sendDirectlyToSelection = sendDirectlyToSelection;
+window.clearAllFiles = clearAllFiles;
+window.removeFileFromPreview = removeFileFromPreview;
 window.showTransferCompleteUI = showTransferCompleteUI;
