@@ -63,6 +63,9 @@ let fileQueue = [];
 let pendingTransferSenderName = null;
 let pendingTransferFiles = [];
 
+// Pending targets to send after FILE_SHARE_TARGET confirmed
+let pendingTargetPublicKeys = null;
+
 // File Transfer State (Sender)
 let transferStates = {};
 
@@ -337,6 +340,26 @@ function handleSignalingMessage(msg) {
                         isInitiatorRole = true;
                         sessionStorage.setItem('gdrop_is_sender', 'true');
 
+                        // Set data untuk Transfer Complete screen
+                        // Simpan file list dan metadata agar bisa ditampilkan di completion screen
+                        if (fileQueue.length > 0) {
+                            window.lastTransferFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
+                            window.transferStartTime = window.transferStartTime || Date.now();
+                            window.isReceiverMode = false;
+                            window.peerDeviceName = responderName;
+
+                            // Show Transfer Progress UI for sender (first accept only)
+                            const myPublicKey = localStorage.getItem('gdrop_public_key');
+                            const uniqueTransferKey = currentTransactionId && myPublicKey
+                                ? `${currentTransactionId}_${myPublicKey}`
+                                : currentTransactionId;
+
+                            if (window.showTransferProgressUI && !activeTransferIds.has(uniqueTransferKey)) {
+                                activeTransferIds.add(uniqueTransferKey);
+                                window.showTransferProgressUI(window.lastTransferFiles, acceptedPublicKeys.size, false, uniqueTransferKey);
+                            }
+                        }
+
                         // Delay untuk memberikan waktu receiver setup setelah menerima START_TRANSACTION
                         // Backend sudah mengirim START_TRANSACTION langsung ke receiver saat accept
                         // Jadi sender hanya perlu memulai WebRTC connection
@@ -479,6 +502,17 @@ function handleSignalingMessage(msg) {
             handleWebRTCSignal(msg.data);
             break;
 
+        // File metadata confirmed stored in backend - now send targets
+        case WS_TYPE.FILE_SHARE_TARGET:
+            if (pendingTargetPublicKeys && currentTransactionId) {
+                sendSignalingMessage(WS_TYPE.USER_SHARE_TARGET, {
+                    transaction_id: currentTransactionId,
+                    public_keys: pendingTargetPublicKeys
+                });
+                pendingTargetPublicKeys = null;
+            }
+            break;
+
         // System Messages
         case 2: // CONFIG_DISCOVERABLE (Ask to set discoverable state)
             break;
@@ -510,6 +544,28 @@ function handleTransactionCreated(data) {
     if (targetDevices.length > 0 && isInitialId) {
         currentTransactionId = transactionId;
 
+        // Store target public keys to send after FILE_SHARE_TARGET confirmed
+        const targetPublicKeys = targetDevices.map(d => d.id);
+
+        // Sync fileQueue from sessionStorage if empty (handles page refresh case)
+        // Only sync if fileQueue is empty but sessionStorage has files
+        if (fileQueue.length === 0) {
+            const storedFilesData = sessionStorage.getItem('gdrop_transfer_files');
+            if (storedFilesData) {
+                try {
+                    const storedFiles = JSON.parse(storedFilesData);
+                    // storedFiles is metadata only, not actual File objects
+                    // This means we cannot send files after page refresh
+                    // Clear the stale sessionStorage data
+                    sessionStorage.removeItem('gdrop_transfer_files');
+                    showToast('Please select files again - session expired', 'warning');
+                    return;
+                } catch (e) {
+                    sessionStorage.removeItem('gdrop_transfer_files');
+                }
+            }
+        }
+
         // Load from IndexedDB
         if (fileQueue.length > 0) {
             const filesMeta = fileQueue.map(f => ({
@@ -518,18 +574,21 @@ function handleTransactionCreated(data) {
                 type: f.type || 'application/octet-stream'
             }));
 
+            // Store targets to be sent after FILE_SHARE_TARGET is confirmed
+            pendingTargetPublicKeys = targetPublicKeys;
+
             sendSignalingMessage(WS_TYPE.FILE_SHARE_TARGET, {
                 transaction_id: currentTransactionId,
                 files: filesMeta
             });
+            // USER_SHARE_TARGET will be sent after FILE_SHARE_TARGET response
+        } else {
+            // No files in queue, send targets immediately
+            sendSignalingMessage(WS_TYPE.USER_SHARE_TARGET, {
+                transaction_id: currentTransactionId,
+                public_keys: targetPublicKeys
+            });
         }
-
-        // Then send target devices
-        const targetPublicKeys = targetDevices.map(d => d.id);
-        sendSignalingMessage(WS_TYPE.USER_SHARE_TARGET, {
-            transaction_id: currentTransactionId,
-            public_keys: targetPublicKeys
-        });
 
     } else {
         if (!isInitialId && data.id !== currentTransactionId) {
@@ -785,15 +844,25 @@ async function handleWebRTCSignal(signal) {
 function setupDataChannel(channel, key) {
     channel.binaryType = 'arraybuffer'; // Kirim data sebagai ArrayBuffer
 
-    // On Open Event
-    channel.onopen = () => {
-        if (isInitiatorRole && fileQueue.length > 0) {
+    const startSendingIfReady = () => {
+        // Check both global flag and sessionStorage as fallback
+        const isSender = isInitiatorRole || sessionStorage.getItem('gdrop_is_sender') === 'true';
+        
+        if (isSender && fileQueue.length > 0) {
             if (!transferStates[key]) transferStates[key] = { index: 0, busy: false };
-
-            // Mulai kirim file ke user 'key' ini saja
             sendFileTo(key);
         }
     };
+
+    // On Open Event
+    channel.onopen = () => {
+        startSendingIfReady();
+    };
+
+    // Check if channel is already open (race condition fix)
+    if (channel.readyState === 'open') {
+        startSendingIfReady();
+    }
 
     // On Message Event
     channel.onmessage = (event) => handleIncomingData(event.data);
@@ -1208,6 +1277,7 @@ function resetTransferState(clearFiles = false) {
 
     currentTransactionId = null;
     pendingTransactionId = null;
+    pendingTargetPublicKeys = null;
 
     incomingFileInfo = null;
     incomingFileBuffer = [];
@@ -1271,6 +1341,7 @@ function resetTransferState(clearFiles = false) {
 window.updateNetworkSpeed = (mbps) => { currentSpeedMbps = mbps; };
 window.startTransferProcess = createNewTransaction;
 window.resetTransferState = resetTransferState;
+window.getFileQueueLength = () => fileQueue.length;
 
 // Run App
 document.addEventListener('DOMContentLoaded', initializeApp);
