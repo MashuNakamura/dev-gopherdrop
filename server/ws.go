@@ -267,6 +267,7 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 			var data struct {
 				TransactionID string `mapstructure:"transaction_id"`
 				Accept        bool   `mapstructure:"accept"`
+				Reason        string `mapstructure:"reason"`
 			}
 			if err := mapstructure.Decode(msg.Data, &data); err != nil {
 				sendWS(mUser.Conn, ERROR, "invalid data for FILE_SHARE_ACCEPT")
@@ -360,11 +361,13 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 					Username      string `json:"username"`
 					Declined      bool   `json:"declined"`
 					TransactionID string `json:"transaction_id"`
+					Reason        string `json:"reason,omitempty"`
 				}{
 					Type:          "decline_notification",
 					Username:      mUser.MinUser.Username,
 					Declined:      true,
 					TransactionID: data.TransactionID,
+					Reason:        data.Reason,
 				})
 			}
 			s.TransactionMu.Unlock()

@@ -314,7 +314,14 @@ function handleSignalingMessage(msg) {
             // Kalau tipe pesannya 'decline_notification', langsung tangani dan stop
             if (msg.data && msg.data.type === 'decline_notification' && msg.data.declined) {
                 const responderName = msg.data.username || "Recipient";
-                showToast(`${responderName} declined request.`, 'error');
+                const declineReason = msg.data.reason;
+
+                // Tampilkan pesan sesuai alasan penolakan
+                if (declineReason === 'busy') {
+                    showToast(`${responderName} is busy with another transfer.`, 'warning');
+                } else {
+                    showToast(`${responderName} declined request.`, 'error');
+                }
 
                 // Reset state agar UI Sender bersih lagi dan bisa kirim ulang
                 resetTransferState();
@@ -638,10 +645,11 @@ function handleIncomingTransferOffer(data) {
     if (isBusyProgress || isBusyComplete) {
         console.log("User is busy. Auto-declining incoming transfer.");
 
-        // Kirim sinyal tolak ke pengirim
+        // Kirim sinyal tolak ke pengirim dengan reason busy
         sendSignalingMessage(WS_TYPE.TRANSACTION_SHARE_ACCEPT, {
             transaction_id: data.transaction.id,
-            accept: false
+            accept: false,
+            reason: 'busy'
         });
         return; // Stop, jangan tampilkan modal
     }
