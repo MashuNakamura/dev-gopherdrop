@@ -18,6 +18,7 @@ const API_BASE_URL = IS_LOCALHOST ? LOCAL_API_URL : PROD_API_URL;
 
 // WebSocket Message Types (Backend Protocol)
 const WS_TYPE = {
+    CONFIG_DISCOVERABLE: 2,
     START_SHARING: 3,
     USER_SHARE_LIST: 4,
     NEW_TRANSACTION: 5,
@@ -249,12 +250,16 @@ function connectToSignalingServer(token) {
 
     // Fetching "Who" is online every 3 seconds
     signalingSocket.onopen = () => {
+        // Update status online
         isSocketConnected = true;
 
+        // Check discoverable state
         const isDiscoverable = localStorage.getItem('gdrop_is_discoverable') !== 'false';
 
-        sendSignalingMessage(2, isDiscoverable);
+        // Pooling who is online
+        sendSignalingMessage(WS_TYPE.CONFIG_DISCOVERABLE, isDiscoverable);
 
+        // Start sharing
         sendSignalingMessage(WS_TYPE.START_SHARING, null);
 
         if (discoveryInterval) clearInterval(discoveryInterval);
@@ -265,6 +270,8 @@ function connectToSignalingServer(token) {
         }, 3000);
     };
 
+    // Handle Signaling Messages
+    // Kalau ada pesan dari backend, handle disini
     signalingSocket.onmessage = (event) => {
         try {
             const msg = JSON.parse(event.data);
@@ -273,6 +280,7 @@ function connectToSignalingServer(token) {
         }
     };
 
+    // kalau socket terputus
     signalingSocket.onclose = () => {
         isSocketConnected = false;
         signalingSocket = null;
@@ -286,6 +294,7 @@ function connectToSignalingServer(token) {
     };
 }
 
+// Send Signaling Message
 function sendSignalingMessage(type, data) {
     if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
         signalingSocket.send(JSON.stringify({ type: type, data: data }));
@@ -400,6 +409,7 @@ function handleSignalingMessage(msg) {
         // Start Transaction (Both Sides) -> WebSocket out and WebRTC Initiation
         case WS_TYPE.START_TRANSACTION:
             {
+                // Menentukan transaction ID yang valid dari pesan
                 let incomingTxId = null;
                 let isDataObject = false;
 
@@ -480,6 +490,7 @@ function handleSignalingMessage(msg) {
                         fileQueue = msg.data.files;
                     }
 
+                    // Menentukan nama sender
                     if (msg.data && msg.data.sender_name) {
                         window.senderDeviceName = msg.data.sender_name;
                     } else if (msg.data && msg.data.sender) {
@@ -487,15 +498,18 @@ function handleSignalingMessage(msg) {
                     }
                 }
 
+                // Jika tidak ada file, tampilkan error
                 if (displayFiles.length === 0) {
                     showToast('Error: No files to transfer', 'error');
                     break;
                 }
 
+                // Tampilkan UI transfer
                 if (window.showTransferProgressUI) {
                     window.showTransferProgressUI(displayFiles, 1, !isInitiator, uniqueTransferKey);
                 }
 
+                // Set role initiator
                 isInitiatorRole = isInitiator;
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
 
@@ -513,6 +527,7 @@ function handleSignalingMessage(msg) {
                     }
                 }
 
+                // Jika receiver, start WebRTC connection
                 if (!isInitiator) {
                     setTimeout(() => {
                         startWebRTCConnection(false, null);
@@ -539,10 +554,10 @@ function handleSignalingMessage(msg) {
             break;
 
         // System Messages
-        case 2: // CONFIG_DISCOVERABLE (Ask to set discoverable state)
+        case WS_TYPE.CONFIG_DISCOVERABLE: // CONFIG_DISCOVERABLE (Ask to set discoverable state)
             break;
 
-        case 1: // ERROR Handling
+        case WS_TYPE.ERROR: // ERROR Handling
             if (msg.data !== "invalid websocket message") {
                 showToast(msg.data, 'error');
             }
@@ -602,6 +617,7 @@ function handleTransactionCreated(data) {
             // Store targets to be sent after FILE_SHARE_TARGET is confirmed
             pendingTargetPublicKeys = targetPublicKeys;
 
+            // Kirim ke signaling server si metadata file
             sendSignalingMessage(WS_TYPE.FILE_SHARE_TARGET, {
                 transaction_id: currentTransactionId,
                 files: filesMeta
@@ -609,6 +625,7 @@ function handleTransactionCreated(data) {
             // USER_SHARE_TARGET will be sent after FILE_SHARE_TARGET response
         } else {
             // No files in queue, send targets immediately
+            // Cuma ngirim daftar penerima ke server (signaling biasa)
             sendSignalingMessage(WS_TYPE.USER_SHARE_TARGET, {
                 transaction_id: currentTransactionId,
                 public_keys: targetPublicKeys
@@ -812,6 +829,7 @@ async function startWebRTCConnection(isInitiator, targetKey) {
         });
     } else {
         // RECEIVER: Tunggu channel dari Sender
+        // Ini proses untuk menerima data channel dari sender
         pc.ondatachannel = (event) => {
             const senderKey = targetKey;
             if (senderKey) {
@@ -823,13 +841,12 @@ async function startWebRTCConnection(isInitiator, targetKey) {
 }
 
 async function handleWebRTCSignal(signal) {
-    const remoteKey = signal.from_key;
-    const data = signal.data;
+    const remoteKey = signal.from_key; // Public key dari user lain
+    const data = signal.data; // Data dari signal
 
     // If the remote key is not found, create a new peer connection
     if (!peerConnections[remoteKey]) {
         if (data.type === 'offer') {
-            // [FIXED] Tambahkan await biar koneksi siap dulu
             await startWebRTCConnection(false, remoteKey);
         } else {
             return;
@@ -904,60 +921,7 @@ function setupDataChannel(channel, key) {
     channel.onmessage = (event) => handleIncomingData(event.data);
 }
 
-// function sendFileTo(key) {
-//     const state = transferStates[key];
-//     if (!state) return;
-
-//     // Cek Queue User Ini
-//     if (state.index >= fileQueue.length) {
-//         // [FIXED] Panggil fungsi Juri untuk cek apakah SEMUA user sudah selesai
-//         checkAllPeersDone();
-//         return;
-//     }
-
-//     const file = fileQueue[state.index];
-//     const channel = dataChannels[key];
-
-//     if (!channel || channel.readyState !== 'open') return;
-
-//     // Send Header
-//     const metadata = JSON.stringify({
-//         type: 'meta', name: file.name, size: file.size, mime: file.type
-//     });
-//     channel.send(metadata);
-
-//     // Send Body
-//     const reader = new FileReader();
-//     let offset = 0;
-
-//     reader.onload = (e) => {
-//         if (channel.readyState !== 'open') return;
-
-//         channel.send(e.target.result);
-//         offset += e.target.result.byteLength;
-
-//         // UI Update (Progress Bar Global - ambil rata-rata atau last active)
-//         const progress = Math.min(100, Math.round((offset / file.size) * 100));
-//         if (window.updateFileProgressUI) window.updateFileProgressUI(file.name, progress);
-
-//         if (offset < file.size) {
-//             readSlice(offset);
-//         } else {
-//             showToast(`Sent to device`, 'success');
-//             // Naikkan index user ini & lanjut
-//             state.index++;
-//             setTimeout(() => sendFileTo(key), 100);
-//         }
-//     };
-
-//     const readSlice = (o) => {
-//         const slice = file.slice(o, o + CHUNK_SIZE);
-//         if (channel.bufferedAmount > 10 * 1024 * 1024) setTimeout(() => readSlice(o), 100);
-//         else reader.readAsArrayBuffer(slice);
-//     };
-//     readSlice(0);
-// }
-
+// Func kirim file ke peer, key merepresentasikan public key peer dari receiver
 async function sendFileTo(key) {
     const state = transferStates[key];
     if (!state) return;
@@ -968,9 +932,12 @@ async function sendFileTo(key) {
         return;
     }
 
+    // Ambil file dari queue
     const file = fileQueue[state.index];
+    // Ambil channel dari peer
     const channel = dataChannels[key];
 
+    // Cek channel siap
     if (!channel || channel.readyState !== 'open') {
         console.error("Channel not ready for:", key);
         showToast("Connection lost, unable to send file", "error");
@@ -1100,6 +1067,7 @@ function checkAllPeersDone() {
 }
 
 function handleIncomingData(data) {
+    // Menerima metadata
     if (typeof data === 'string') {
         try {
             const msg = JSON.parse(data);
@@ -1115,7 +1083,7 @@ function handleIncomingData(data) {
         return;
     }
 
-    // KASUS 2: Terima Chunk (ArrayBuffer)
+    // Terima Chunk (ArrayBuffer)
     if (incomingFileInfo) {
         incomingFileBuffer.push(data);
         incomingReceivedSize += data.byteLength;
@@ -1203,6 +1171,7 @@ window.triggerDownloadAll = function () {
     });
 };
 
+// End Transfer Session untuk balik ke dashboard index
 window.endTransferSession = async function () {
     const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
     // Determine if we are the sender
@@ -1222,19 +1191,24 @@ window.endTransferSession = async function () {
         window.receivedFileBlobs = [];
     }
 
+    // sembunyikan overlay transfer
     const progressOverlay = document.getElementById('transfer-progress-overlay');
     if (progressOverlay) {
         progressOverlay.classList.add('hidden');
         progressOverlay.classList.remove('flex');
     }
 
+    // Hapus overlay transfer
     const completeOverlay = document.getElementById('transfer-complete-overlay');
     if (completeOverlay) completeOverlay.remove();
 
+    // Jika sender, clear files from DB
     if (was_sender) {
         await window.clearFilesFromDB();
         window.location.href = `${prefix}index.html`;
-    } else {
+    }
+    // Jika receiver, kembali ke dashboard
+    else {
         const statusEl = document.getElementById('transfer-status-text');
         if (statusEl) statusEl.textContent = "Ready";
         showToast("Transfer Finished", "info");
@@ -1246,6 +1220,7 @@ window.endTransferSession = async function () {
     }
 };
 
+// Set Discoverable
 window.setDiscoverable = (isDiscoverable) => {
     sendSignalingMessage(2, isDiscoverable);
 };
