@@ -282,11 +282,17 @@ function sendToExistingGroup(groupId) {
         return;
     }
 
-    // Check if files are selected
+    // Check if actual files exist in fileQueue (source of truth)
+    const hasActualFiles = window.getFileQueueLength && window.getFileQueueLength() > 0;
     const filesData = sessionStorage.getItem('gdrop_transfer_files');
-    const hasFiles = filesData && JSON.parse(filesData).length > 0;
+    const hasStoredMeta = filesData && JSON.parse(filesData).length > 0;
 
-    if (!hasFiles) {
+    // If sessionStorage has files but fileQueue is empty, it's stale data
+    if (hasStoredMeta && !hasActualFiles) {
+        sessionStorage.removeItem('gdrop_transfer_files');
+    }
+
+    if (!hasActualFiles) {
         // Show file upload prompt
         showFileUploadPrompt(() => {
             // Continue with sending after files selected
@@ -349,11 +355,17 @@ function confirmCreateGroup() {
 
     const selectedDevices = getSelectedDevices();
 
-    // Check if files are selected
+    // Check if actual files exist in fileQueue (source of truth)
+    const hasActualFiles = window.getFileQueueLength && window.getFileQueueLength() > 0;
     const filesData = sessionStorage.getItem('gdrop_transfer_files');
-    const hasFiles = filesData && JSON.parse(filesData).length > 0;
+    const hasStoredMeta = filesData && JSON.parse(filesData).length > 0;
 
-    if (!hasFiles) {
+    // If sessionStorage has files but fileQueue is empty, it's stale data
+    if (hasStoredMeta && !hasActualFiles) {
+        sessionStorage.removeItem('gdrop_transfer_files');
+    }
+
+    if (!hasActualFiles) {
         // Show file upload prompt
         showFileUploadPrompt(() => {
             // Callback after file upload - continue with group creation
@@ -708,7 +720,11 @@ async function loadTransferProgressView(transactionId) {
     if (overlay) return overlay;
 
     try {
-        const response = await fetch('pages/transfer-progress.html');
+        // Determine correct path based on current page location
+        const isInPagesFolder = window.location.pathname.includes('/pages/');
+        const progressPath = isInPagesFolder ? 'transfer-progress.html' : 'pages/transfer-progress.html';
+        
+        const response = await fetch(progressPath);
         if (!response.ok) throw new Error("Failed to load transfer page");
 
         const html = await response.text();
@@ -1298,7 +1314,11 @@ async function loadTransferCompleteView() {
     }
 
     try {
-        const response = await fetch('pages/transfer-complete.html');
+        // Determine correct path based on current page location
+        const isInPagesFolder = window.location.pathname.includes('/pages/');
+        const completePath = isInPagesFolder ? 'transfer-complete.html' : 'pages/transfer-complete.html';
+        
+        const response = await fetch(completePath);
         if (!response.ok) throw new Error("Failed to load complete page");
 
         const html = await response.text();
@@ -1615,11 +1635,18 @@ window.sendDirectlyToSelection = function () {
         return;
     }
 
-    // Cek apakah ada file yang dipilih?
+    // Check if actual files exist in fileQueue (source of truth)
+    // fileQueue contains actual File objects, sessionStorage only has metadata
+    const hasActualFiles = window.getFileQueueLength && window.getFileQueueLength() > 0;
     const filesData = sessionStorage.getItem('gdrop_transfer_files');
-    const hasFiles = filesData && JSON.parse(filesData).length > 0;
+    const hasStoredMeta = filesData && JSON.parse(filesData).length > 0;
 
-    if (!hasFiles) {
+    // If sessionStorage has files but fileQueue is empty, it's stale data
+    if (hasStoredMeta && !hasActualFiles) {
+        sessionStorage.removeItem('gdrop_transfer_files');
+    }
+
+    if (!hasActualFiles) {
         // Jika tidak ada file, munculkan prompt upload
         showFileUploadPrompt(() => {
             // Setelah file dipilih, panggil fungsi ini lagi (rekursif)
