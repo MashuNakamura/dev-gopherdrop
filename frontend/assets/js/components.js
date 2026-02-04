@@ -1368,6 +1368,23 @@ async function showTransferCompleteUI() {
         return;
     }
 
+    if (!window.lastTransferFiles || window.lastTransferFiles.length === 0) {
+        console.warn("DEBUG: Data hilang di Complete Screen, mencoba restore...");
+        try {
+            const stored = sessionStorage.getItem('gdrop_transfer_files');
+            if (stored) {
+                window.lastTransferFiles = JSON.parse(stored);
+            }
+        } catch (e) { console.error("Restore error:", e); }
+    }
+
+    // Jika Peer Name hilang, restore juga
+    if (!window.peerDeviceName) {
+        const groupName = sessionStorage.getItem('gdrop_group_name');
+        if (groupName) window.peerDeviceName = groupName;
+        else window.peerDeviceName = "Recipient";
+    }
+
     // Mengambil settingan terakhir user, default ke 'light'
     const storedTheme = localStorage.getItem('gopherdrop-theme') || 'light';
     if (window.applyTheme) {
@@ -1378,7 +1395,6 @@ async function showTransferCompleteUI() {
         document.documentElement.classList.remove('dark');
         overlay.classList.remove('dark'); // Pastikan overlay juga bersih
     }
-    // -------------------------------------------------------
 
     // 3. Persiapan Data
     const files = window.lastTransferFiles || [];

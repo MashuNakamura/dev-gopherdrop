@@ -448,7 +448,6 @@ function handleSignalingMessage(msg) {
                             }
                         } catch (e) { console.error("Failed to restore file queue", e); }
                     }
-
                     // Sender side: use fileQueue
                     displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
                 } else {
@@ -485,7 +484,6 @@ function handleSignalingMessage(msg) {
                             window.loadFilesFromDB().then(files => {
                                 if (files.length > 0) {
                                     fileQueue = files; // Timpa dengan File Object asli dari DB
-                                    console.log("Restored File objects from DB for Sender");
                                 }
                             });
                         }
