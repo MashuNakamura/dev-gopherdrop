@@ -126,7 +126,7 @@ async function initializeApp() {
     highlightActiveNav();
     startNetworkSpeedIndicator();
     await fetchNetworkSSID();
-    
+
     // Handle pending transfer setelah redirect (untuk receiver yang accept dari halaman lain)
     handlePendingTransferFromRedirect();
 }
@@ -135,27 +135,27 @@ async function initializeApp() {
 function handlePendingTransferFromRedirect() {
     const pendingData = sessionStorage.getItem('gdrop_pending_transfer');
     if (!pendingData) return;
-    
+
     try {
         const { transactionId, senderName, files } = JSON.parse(pendingData);
-        
+
         // Hapus data pending agar tidak diproses ulang
         sessionStorage.removeItem('gdrop_pending_transfer');
-        
+
         if (!transactionId || !files || files.length === 0) return;
-        
+
         // Set global state
         pendingTransactionId = transactionId;
         pendingTransferSenderName = senderName;
         pendingTransferFiles = files;
-        
+
         // Tampilkan transfer progress UI
         if (window.showTransferProgressUI) {
             const myPublicKey = localStorage.getItem('gdrop_public_key');
             const uniqueTransferKey = transactionId && myPublicKey
                 ? `${transactionId}_${myPublicKey}`
                 : transactionId;
-            
+
             window.senderDeviceName = senderName;
             window.showTransferProgressUI(files, 1, true, uniqueTransferKey);
         }
@@ -361,11 +361,11 @@ function handleSignalingMessage(msg) {
                     if (devices.length > 0) {
                         const targetKey = devices[0].id;
                         acceptedPublicKeys.add(targetKey);
-                        
+
                         // Set initiator role untuk sender
                         isInitiatorRole = true;
                         sessionStorage.setItem('gdrop_is_sender', 'true');
-                        
+
                         setTimeout(() => {
                             startWebRTCConnection(true, targetKey);
                         }, 300);
@@ -379,7 +379,7 @@ function handleSignalingMessage(msg) {
             {
                 let incomingTxId = null;
                 let isDataObject = false;
-                
+
                 // Check if msg.data is object or string
                 if (msg.data && typeof msg.data === 'object' && msg.data.transaction_id) {
                     incomingTxId = msg.data.transaction_id;
@@ -437,6 +437,18 @@ function handleSignalingMessage(msg) {
 
                 let displayFiles = [];
                 if (isInitiator) {
+                    // Add some Safe Check for fileQueue
+                    if (!fileQueue || fileQueue.length === 0) {
+                        try {
+                            // Ambil cadangan metadata file dari Session Storage
+                            const storedFiles = sessionStorage.getItem('gdrop_transfer_files');
+                            if (storedFiles) {
+                                // Isi ulang fileQueue supaya UI bisa baca
+                                fileQueue = JSON.parse(storedFiles);
+                            }
+                        } catch (e) { console.error("Failed to restore file queue", e); }
+                    }
+
                     // Sender side: use fileQueue
                     displayFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
                 } else {
@@ -464,6 +476,21 @@ function handleSignalingMessage(msg) {
 
                 isInitiatorRole = isInitiator;
                 sessionStorage.setItem('gdrop_is_sender', isInitiator);
+
+                // Another Safe Check for fileQueue
+                if (isInitiator) {
+                    // Cek apakah fileQueue cuma punya metadata (tidak punya fungsi .slice artinya bukan File asli)
+                    if (fileQueue.length > 0 && !fileQueue[0].slice) {
+                        if (window.loadFilesFromDB) {
+                            window.loadFilesFromDB().then(files => {
+                                if (files.length > 0) {
+                                    fileQueue = files; // Timpa dengan File Object asli dari DB
+                                    console.log("Restored File objects from DB for Sender");
+                                }
+                            });
+                        }
+                    }
+                }
 
                 if (!isInitiator) {
                     setTimeout(() => {
@@ -601,10 +628,10 @@ window.respondToInvitation = function (isAccepted) {
         showToast('Accepted! Preparing connection...', 'success');
 
         // Cek apakah berada di halaman utama (index.html atau root /)
-        const isOnMainPage = window.location.pathname === '/' || 
-                             window.location.pathname.endsWith('/') ||
-                             window.location.pathname.includes('index.html');
-        
+        const isOnMainPage = window.location.pathname === '/' ||
+            window.location.pathname.endsWith('/') ||
+            window.location.pathname.includes('index.html');
+
         if (!isOnMainPage) {
             // Simpan data transfer ke sessionStorage agar bisa diambil setelah redirect
             sessionStorage.setItem('gdrop_pending_transfer', JSON.stringify({
@@ -612,7 +639,7 @@ window.respondToInvitation = function (isAccepted) {
                 senderName: pendingTransferSenderName,
                 files: pendingTransferFiles
             }));
-            
+
             const prefix = window.location.pathname.includes('/pages/') ? '../' : '';
             window.location.href = `${prefix}index.html`;
             return;
@@ -623,17 +650,17 @@ window.respondToInvitation = function (isAccepted) {
         const filesToShow = pendingTransferFiles;
         const senderToShow = pendingTransferSenderName;
         const txIdToShow = pendingTransactionId;
-        
+
         setTimeout(() => {
             if (window.showTransferProgressUI && filesToShow && filesToShow.length > 0) {
                 const myPublicKey = localStorage.getItem('gdrop_public_key');
                 const uniqueTransferKey = txIdToShow && myPublicKey
                     ? `${txIdToShow}_${myPublicKey}`
                     : txIdToShow;
-                
+
                 // Set sender device name untuk UI
                 window.senderDeviceName = senderToShow;
-                
+
                 // Tampilkan progress UI sebagai receiver
                 window.showTransferProgressUI(filesToShow, 1, true, uniqueTransferKey);
             }
@@ -931,7 +958,7 @@ async function sendFileTo(key) {
             // D. UPDATE UI WITH OVERALL PROGRESS AND ETA
             const progress = Math.min(100, Math.round((offset / file.size) * 100));
             const overallProgress = Math.min(100, Math.round((totalBytesSent / totalBytesToSend) * 100));
-            
+
             // Calculate ETA with guard against division by zero
             const elapsed = Date.now() - transferStartTime;
             let etaSeconds = 0;
@@ -941,7 +968,7 @@ async function sendFileTo(key) {
                 const etaMs = bytesPerMs > 0 ? remainingBytes / bytesPerMs : 0;
                 etaSeconds = Math.ceil(etaMs / 1000);
             }
-            
+
             if (window.updateFileProgressUI) {
                 window.updateFileProgressUI(file.name, progress, key, overallProgress, etaSeconds);
             }
@@ -959,7 +986,7 @@ async function sendFileTo(key) {
     } catch (err) {
         console.error("Error sending file:", err);
         showToast(`❌ Failed to send "${file.name}" - ${err.message}`, "error");
-        
+
         // Move to next file after error to prevent blocking
         state.index++;
         setTimeout(() => sendFileTo(key), 500);
@@ -1200,7 +1227,7 @@ function resetTransferState(clearFiles = false) {
     dataChannels = {};
     acceptedPublicKeys.clear();
     transferStates = {};
-    
+
     // Reset progress tracking
     transferStartTime = null;
     totalBytesToSend = 0;
