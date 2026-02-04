@@ -626,13 +626,24 @@ function handleIncomingTransferOffer(data) {
     if (!data || !data.transaction) return;
 
     // Auto reject if the receiver is still in another transfer
-    const overlay = document.getElementById('transfer-progress-overlay');
-    if (overlay && !overlay.classList.contains('hidden')) {
+    // Cek apakah user sedang dalam proses transfer (Progress Bar)
+    const progressOverlay = document.getElementById('transfer-progress-overlay');
+    const isBusyProgress = progressOverlay && !progressOverlay.classList.contains('hidden');
+
+    // Cek apakah user sedang melihat hasil transfer (Completion Screen)
+    const completeOverlay = document.getElementById('transfer-complete-overlay');
+    const isBusyComplete = completeOverlay && document.body.contains(completeOverlay);
+
+    // Jika sedang sibuk di salah satu layar tsb, tolak otomatis
+    if (isBusyProgress || isBusyComplete) {
+        console.log("User is busy. Auto-declining incoming transfer.");
+
+        // Kirim sinyal tolak ke pengirim
         sendSignalingMessage(WS_TYPE.TRANSACTION_SHARE_ACCEPT, {
             transaction_id: data.transaction.id,
             accept: false
         });
-        return;
+        return; // Stop, jangan tampilkan modal
     }
 
     pendingTransactionId = data.transaction.id;

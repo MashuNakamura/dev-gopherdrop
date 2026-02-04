@@ -1468,7 +1468,18 @@ async function showTransferCompleteUI() {
     if (sizeEl) sizeEl.textContent = formatSize(totalSize);
 
     // Update nama dengan hasil formatter
-    if (groupNameEl) groupNameEl.textContent = peerName;
+    // if (groupNameEl) groupNameEl.textContent = peerName;
+    if (groupNameEl) {
+        if (!isReceiver) {
+            // SENDER VIEW: Tampilkan Total Device saja biar bersih
+            // Karena detail nama sudah ada di list bawah
+            const targetCount = window.transferRecipientCount || 1;
+            groupNameEl.textContent = `${targetCount} Device${targetCount > 1 ? 's' : ''}`;
+        } else {
+            // RECEIVER VIEW: Tetap tampilkan nama pengirim
+            groupNameEl.textContent = peerName;
+        }
+    }
 
     // 5. LOGIKA ADAPTIF (SENDER vs RECEIVER)
     if (isReceiver) {
