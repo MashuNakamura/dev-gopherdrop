@@ -304,95 +304,95 @@ function handleSignalingMessage(msg) {
 
         // New Transaction Created - Offering
         case WS_TYPE.USER_SHARE_TARGET:
-            // [FIXED] Hapus logic busy check manual disini, biarkan handleTransactionCreated mengurusnya
             // agar bisa mengirim sinyal auto-decline jika busy.
             handleTransactionCreated(msg.data);
             break;
 
-        // New Transaction Created - Receiver
+        // New Transaction Created - Receiver / Response Handler
         case WS_TYPE.TRANSACTION_SHARE_ACCEPT:
+            // 1. PRIORITAS UTAMA: Cek Decline Notification DULUAN
+            // Kalau tipe pesannya 'decline_notification', langsung tangani dan stop
+            if (msg.data && msg.data.type === 'decline_notification' && msg.data.declined) {
+                const responderName = msg.data.username || "Recipient";
+                showToast(`${responderName} declined request.`, 'error');
+
+                // Reset state agar UI Sender bersih lagi dan bisa kirim ulang
+                resetTransferState();
+                return;
+            }
+
+            // 2. Handle Accept Notification (SENDER SIDE)
+            if (msg.data && msg.data.type === 'accept_notification' && msg.data.accepted) {
+                const responderName = msg.data.username || "Recipient";
+                const responderKey = msg.data.sender_public_key;
+
+                showToast(`${responderName} accepted! Starting transfer...`, 'success');
+
+                // Auto-start transaction process
+                if (currentTransactionId && responderKey) {
+                    acceptedPublicKeys.add(responderKey);
+                    isInitiatorRole = true;
+                    sessionStorage.setItem('gdrop_is_sender', 'true');
+
+                    // [FIX SUMMARY] Simpan data untuk UI Summary nanti (Completion Screen)
+                    if (fileQueue.length > 0) {
+                        window.lastTransferFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
+                        window.transferStartTime = window.transferStartTime || Date.now();
+                        window.isReceiverMode = false;
+
+                        // Set nama peer jadi nama user yang accept, biar gak muncul ID panjang di summary
+                        window.peerDeviceName = responderName;
+
+                        // Tampilkan UI Progress di Sender
+                        const myPublicKey = localStorage.getItem('gdrop_public_key');
+                        const uniqueTransferKey = currentTransactionId && myPublicKey
+                            ? `${currentTransactionId}_${myPublicKey}`
+                            : currentTransactionId;
+
+                        if (window.showTransferProgressUI && !activeTransferIds.has(uniqueTransferKey)) {
+                            activeTransferIds.add(uniqueTransferKey);
+                            window.showTransferProgressUI(window.lastTransferFiles, acceptedPublicKeys.size, false, uniqueTransferKey);
+                        }
+                    }
+
+                    // Mulai koneksi WebRTC (kasih delay dikit biar backend siap)
+                    setTimeout(() => {
+                        startWebRTCConnection(true, responderKey);
+                    }, 300);
+                }
+                return;
+            }
+
+            // 3. Handle Incoming Offer (RECEIVER SIDE - Full Data Object)
+            // Ini kondisi normal saat receiver menerima tawaran file
             if (msg.data && msg.data.transaction && msg.data.sender) {
                 if (msg.data.transaction.sender && msg.data.transaction.sender.user) {
-                    targetPublicKey = msg.data.transaction.sender.user.public_key;
+                    // Simpan public key pengirim kalau ada
+                    // targetPublicKey = msg.data.transaction.sender.user.public_key; 
                 }
                 handleIncomingTransferOffer(msg.data);
-            } else {
-                // Receiving accept/decline notification
-                if (msg.data && msg.data.type === 'decline_notification' && msg.data.declined) {
-                    const responderName = msg.data.username || "Recipient";
-                    showToast(`${responderName} declined your invitation.`, 'error');
-                    return;
-                }
+            }
 
-                // Handle accept notification
-                if (msg.data && msg.data.type === 'accept_notification' && msg.data.accepted) {
-                    const responderName = msg.data.username || "Recipient";
-                    const responderKey = msg.data.sender_public_key;
+            // 4. Legacy Fallback (Jaga-jaga kalau format pesan lama)
+            // Kalau accept: false tapi bukan tipe notifikasi decline di atas
+            else if (msg.data.accept === false) {
+                const responderName = msg.data.sender || "Recipient";
+                showToast(`${responderName} declined.`, 'error');
+                resetTransferState();
+                return;
+            }
 
-                    showToast(`${responderName} accepted! Starting transfer...`, 'success');
-
-                    // Auto-start transaction
-                    if (currentTransactionId && responderKey) {
-                        acceptedPublicKeys.add(responderKey);
-
-                        // Sender yang menerima accept notification adalah initiator
-                        // Set ini agar setupDataChannel.onopen akan memanggil sendFileTo
-                        isInitiatorRole = true;
-                        sessionStorage.setItem('gdrop_is_sender', 'true');
-
-                        // Set data untuk Transfer Complete screen
-                        // Simpan file list dan metadata agar bisa ditampilkan di completion screen
-                        if (fileQueue.length > 0) {
-                            window.lastTransferFiles = fileQueue.map(f => ({ name: f.name, size: f.size, type: f.type }));
-                            window.transferStartTime = window.transferStartTime || Date.now();
-                            window.isReceiverMode = false;
-                            window.peerDeviceName = responderName;
-
-                            // Show Transfer Progress UI for sender (first accept only)
-                            const myPublicKey = localStorage.getItem('gdrop_public_key');
-                            const uniqueTransferKey = currentTransactionId && myPublicKey
-                                ? `${currentTransactionId}_${myPublicKey}`
-                                : currentTransactionId;
-
-                            if (window.showTransferProgressUI && !activeTransferIds.has(uniqueTransferKey)) {
-                                activeTransferIds.add(uniqueTransferKey);
-                                window.showTransferProgressUI(window.lastTransferFiles, acceptedPublicKeys.size, false, uniqueTransferKey);
-                            }
-                        }
-
-                        // Delay untuk memberikan waktu receiver setup setelah menerima START_TRANSACTION
-                        // Backend sudah mengirim START_TRANSACTION langsung ke receiver saat accept
-                        // Jadi sender hanya perlu memulai WebRTC connection
-                        setTimeout(() => {
-                            startWebRTCConnection(true, responderKey);
-                        }, 300);
-                    }
-                    return;
-                }
-
-                // Fallback Legacy Logic
-                if (msg.data.accept === false) {
-                    const responderName = msg.data.sender || "Recipient";
-                    showToast(`${responderName} declined the transfer.`, 'error');
-                    resetTransferState();
-                    return;
-                }
-
-                // Fallback Legacy Accept - hanya mulai WebRTC, tidak kirim START_TRANSACTION
-                if (currentTransactionId && msg.data.transaction && msg.data.transaction.id === currentTransactionId) {
-                    const devices = JSON.parse(sessionStorage.getItem('gdrop_transfer_devices') || '[]');
-                    if (devices.length > 0) {
-                        const targetKey = devices[0].id;
-                        acceptedPublicKeys.add(targetKey);
-
-                        // Set initiator role untuk sender
-                        isInitiatorRole = true;
-                        sessionStorage.setItem('gdrop_is_sender', 'true');
-
-                        setTimeout(() => {
-                            startWebRTCConnection(true, targetKey);
-                        }, 300);
-                    }
+            // 5. Legacy Fallback Accept (Jaga-jaga)
+            else if (currentTransactionId && msg.data.transaction && msg.data.transaction.id === currentTransactionId) {
+                const devices = JSON.parse(sessionStorage.getItem('gdrop_transfer_devices') || '[]');
+                if (devices.length > 0) {
+                    const targetKey = devices[0].id;
+                    acceptedPublicKeys.add(targetKey);
+                    isInitiatorRole = true;
+                    sessionStorage.setItem('gdrop_is_sender', 'true');
+                    setTimeout(() => {
+                        startWebRTCConnection(true, targetKey);
+                    }, 300);
                 }
             }
             break;
@@ -872,7 +872,7 @@ function setupDataChannel(channel, key) {
     const startSendingIfReady = () => {
         // Check both global flag and sessionStorage as fallback
         const isSender = isInitiatorRole || sessionStorage.getItem('gdrop_is_sender') === 'true';
-        
+
         if (isSender && fileQueue.length > 0) {
             if (!transferStates[key]) transferStates[key] = { index: 0, busy: false };
             sendFileTo(key);

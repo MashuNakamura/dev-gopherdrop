@@ -723,7 +723,7 @@ async function loadTransferProgressView(transactionId) {
         // Determine correct path based on current page location
         const isInPagesFolder = window.location.pathname.includes('/pages/');
         const progressPath = isInPagesFolder ? 'transfer-progress.html' : 'pages/transfer-progress.html';
-        
+
         const response = await fetch(progressPath);
         if (!response.ok) throw new Error("Failed to load transfer page");
 
@@ -1317,7 +1317,7 @@ async function loadTransferCompleteView() {
         // Determine correct path based on current page location
         const isInPagesFolder = window.location.pathname.includes('/pages/');
         const completePath = isInPagesFolder ? 'transfer-complete.html' : 'pages/transfer-complete.html';
-        
+
         const response = await fetch(completePath);
         if (!response.ok) throw new Error("Failed to load complete page");
 
@@ -1373,12 +1373,11 @@ async function showTransferCompleteUI() {
     if (progressOverlay) {
         progressOverlay.style.display = 'none';
         // Remove from DOM after transition completes to prevent stacking issues
-        // Delay allows any ongoing transitions to complete smoothly
         setTimeout(() => {
             if (progressOverlay.parentNode) {
                 progressOverlay.parentNode.removeChild(progressOverlay);
             }
-        }, 500); // 500ms matches typical CSS transition durations
+        }, 500);
     }
 
     // 2. Load View
@@ -1388,6 +1387,7 @@ async function showTransferCompleteUI() {
         return;
     }
 
+    // Fail-Safe: Restore data jika memori hilang (misal karena refresh)
     if (!window.lastTransferFiles || window.lastTransferFiles.length === 0) {
         console.warn("DEBUG: Data hilang di Complete Screen, mencoba restore...");
         try {
@@ -1398,32 +1398,46 @@ async function showTransferCompleteUI() {
         } catch (e) { console.error("Restore error:", e); }
     }
 
-    // Jika Peer Name hilang, restore juga
+    // Restore Peer Name jika hilang
     if (!window.peerDeviceName) {
         const groupName = sessionStorage.getItem('gdrop_group_name');
         if (groupName) window.peerDeviceName = groupName;
         else window.peerDeviceName = "Recipient";
     }
 
-    // Mengambil settingan terakhir user, default ke 'light'
+    // Apply Theme
     const storedTheme = localStorage.getItem('gopherdrop-theme') || 'light';
     if (window.applyTheme) {
         window.applyTheme(storedTheme);
     }
-    // Safety check: Paksa hapus class dark jika settingan light
     if (storedTheme === 'light') {
         document.documentElement.classList.remove('dark');
-        overlay.classList.remove('dark'); // Pastikan overlay juga bersih
+        overlay.classList.remove('dark');
     }
 
     // 3. Persiapan Data
     const files = window.lastTransferFiles || [];
     const isReceiver = window.isReceiverMode || false;
 
-    // Logika Nama: Jika Receiver -> Tampilkan Nama Pengirim. Jika Sender -> Tampilkan Penerima.
-    const peerName = isReceiver
+    // --- [UPDATE 1: FORMATTER NAMA] ---
+    // Agar ID panjang (Public Key) dipotong jadi pendek
+    const formatPeerName = (name) => {
+        if (!name) return "Unknown";
+        // Jika panjang > 20 karakter & tidak ada spasi (kemungkinan besar ID/Key), kita potong
+        if (name.length > 20 && !name.includes(' ')) {
+            return `${name.substring(0, 6)}...${name.substring(name.length - 4)}`;
+        }
+        return name;
+    };
+
+    // Tentukan Raw Name
+    let rawPeerName = isReceiver
         ? (window.senderDeviceName || "Unknown Sender")
-        : (window.peerDeviceName || (window.transferRecipientCount > 1 ? "Multiple Devices" : "Recipient"));
+        : (window.peerDeviceName || (window.transferRecipientCount > 1 ? `${window.transferRecipientCount} Devices` : "Recipient"));
+
+    // Terapkan Formatter
+    const peerName = formatPeerName(rawPeerName);
+    // ----------------------------------
 
     const startTime = window.transferStartTime || Date.now();
     let duration = Date.now() - startTime;
@@ -1448,12 +1462,12 @@ async function showTransferCompleteUI() {
     const groupNameEl = overlay.querySelector('#complete-group-name');
     const titleEl = overlay.querySelector('h1');
     const descEl = overlay.querySelector('main > section > p');
-
-    // Label kecil di atas nama (Group Insights / Sent By)
     const cardTitleLabel = overlay.querySelector('#complete-group-name').previousElementSibling;
 
     if (timeEl) timeEl.textContent = formatTime(duration);
     if (sizeEl) sizeEl.textContent = formatSize(totalSize);
+
+    // Update nama dengan hasil formatter
     if (groupNameEl) groupNameEl.textContent = peerName;
 
     // 5. LOGIKA ADAPTIF (SENDER vs RECEIVER)
@@ -1462,17 +1476,13 @@ async function showTransferCompleteUI() {
         if (titleEl) titleEl.innerHTML = 'Files <span class="font-bold text-green-500">Received!</span>';
         if (descEl) descEl.textContent = `Successfully received files from ${peerName}.`;
 
-        // Ubah "Group Insights" menjadi "SENT BY"
         if (cardTitleLabel) cardTitleLabel.textContent = "SENT BY";
-        // Pastikan nama pengirim muncul
-        if (groupNameEl) groupNameEl.textContent = peerName;
     } else {
         // --- TAMPILAN PENGIRIM ---
         if (titleEl) titleEl.innerHTML = 'Transfer <span class="font-bold text-primary">Complete!</span>';
         if (descEl) descEl.textContent = `Successfully delivered files to ${peerName}.`;
 
         if (cardTitleLabel) cardTitleLabel.textContent = "RECIPIENT";
-        if (groupNameEl) groupNameEl.textContent = peerName;
     }
 
     // 6. RENDER LIST FILE
@@ -1480,27 +1490,22 @@ async function showTransferCompleteUI() {
     if (fileListContainer) {
         fileListContainer.innerHTML = '';
 
-        // Jika Receiver, ambil data dari blobs agar punya URL download
         const fileSource = isReceiver ? (window.receivedFileBlobs || []) : files;
 
         fileSource.forEach(file => {
-            // Icon Logic Sederhana
             let icon = 'description';
             if (file.type && file.type.includes('image')) icon = 'image';
             else if (file.type && file.type.includes('video')) icon = 'movie';
             else if (file.type && file.type.includes('audio')) icon = 'audio_file';
 
-            // Tombol Aksi di Kanan (Download vs Centang)
             let actionButton = '';
             if (isReceiver && file.url) {
-                // Tombol Re-Download (Receiver)
                 actionButton = `
                     <a href="${file.url}" download="${file.name}" class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all" title="Download Again">
                         <span class="material-symbols-outlined">download</span>
                     </a>
                 `;
             } else {
-                // Centang (Sender)
                 actionButton = `
                     <div class="w-10 h-10 flex items-center justify-center text-green-500">
                         <span class="material-symbols-outlined">check_circle</span>
@@ -1509,7 +1514,6 @@ async function showTransferCompleteUI() {
             }
 
             const newItem = document.createElement('div');
-            // Gunakan class border netral agar mengikuti tema
             newItem.className = 'glass-panel p-4 rounded-3xl flex items-center gap-4 border border-slate-200 dark:border-slate-700';
             newItem.innerHTML = `
                 <div class="w-12 h-12 bg-slate-100 dark:bg-slate-700/50 text-slate-500 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -1525,7 +1529,65 @@ async function showTransferCompleteUI() {
         });
     }
 
-    // Button Footer in Transfer Complete Overlay
+    // --- [UPDATE 2: RENDER RECIPIENT LIST (KHUSUS SENDER)] ---
+    // Agar daftar device yang menerima file muncul di bawah summary
+    const recipientListContainer = overlay.querySelector('#complete-recipient-list');
+
+    if (recipientListContainer) {
+        recipientListContainer.innerHTML = '';
+
+        if (!isReceiver) {
+            // Ambil data target devices dari session storage
+            let targets = [];
+            try {
+                targets = JSON.parse(sessionStorage.getItem('gdrop_transfer_devices') || '[]');
+            } catch (e) { }
+
+            if (targets.length > 0) {
+                // Render list device satu per satu
+                recipientListContainer.innerHTML = targets.map(device => `
+                    <div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-700 mb-2">
+                        <div class="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <span class="material-symbols-outlined text-lg">${device.icon || 'computer'}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${device.name}</p>
+                            <p class="text-[10px] text-green-500 font-bold uppercase tracking-wide">Delivered</p>
+                        </div>
+                        <span class="material-symbols-outlined text-green-500 text-base">check_circle</span>
+                    </div>
+                `).join('');
+            } else {
+                // Fallback kalau data target hilang (misal refresh), tampilkan Peer Name saja
+                recipientListContainer.innerHTML = `
+                    <div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-700">
+                        <div class="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 shadow-sm">
+                            <span class="material-symbols-outlined">devices</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${peerName}</p>
+                            <p class="text-[10px] text-green-500 font-bold uppercase tracking-wide">Delivered</p>
+                        </div>
+                        <span class="material-symbols-outlined text-green-500 text-base">check_circle</span>
+                    </div>`;
+            }
+        } else {
+            // Jika Receiver, tampilkan pengirimnya
+            recipientListContainer.innerHTML = `
+                <div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-2xl border border-slate-100 dark:border-slate-700">
+                    <div class="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 shadow-sm">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${peerName}</p>
+                        <p class="text-[10px] text-primary font-bold uppercase tracking-wide">Sender</p>
+                    </div>
+                </div>`;
+        }
+    }
+    // ---------------------------------------------------------
+
+    // Button Footer
     const footerBtnContainer = overlay.querySelector('footer div:last-child');
     if (footerBtnContainer) {
         footerBtnContainer.innerHTML = '';
