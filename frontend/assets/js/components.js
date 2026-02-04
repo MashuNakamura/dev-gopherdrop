@@ -781,9 +781,18 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false, tr
     if (mainBar) mainBar.style.width = "0%";
 
     // 2. Update Text Header & Save Device Name
-    const peerName = (!isReceiver && (window.selectedDeviceName || sessionStorage.getItem('gdrop_group_name')))
-        ? (window.selectedDeviceName || sessionStorage.getItem('gdrop_group_name'))
-        : (isReceiver ? (window.senderDeviceName || "Sender") : "Device");
+    let peerName = "Device";
+
+    if (isReceiver) {
+        peerName = window.senderDeviceName || "Unknown Sender";
+    } else {
+        // Jika sender, coba ambil nama target device dari selected/group
+        const groupName = sessionStorage.getItem('gdrop_group_name');
+        if (window.selectedDeviceName) peerName = window.selectedDeviceName;
+        else if (groupName) peerName = groupName;
+        else if (deviceCount > 1) peerName = `${deviceCount} Devices`;
+        else peerName = "Recipient";
+    }
 
     window.peerDeviceName = peerName;
 
@@ -798,11 +807,7 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false, tr
     if (directionTextEl) directionTextEl.textContent = subText;
 
     if (recipientCountEl) {
-        if (!isReceiver && peerName && peerName !== "Device") {
-            recipientCountEl.textContent = peerName;
-        } else {
-            recipientCountEl.textContent = `${deviceCount || 1} devices`;
-        }
+        recipientCountEl.textContent = peerName;
     }
 
     // Update numeric values
@@ -815,11 +820,15 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false, tr
         queueContainer.innerHTML = files.map(file => {
             let icon = 'draft';
             let color = 'text-slate-400 bg-slate-100 dark:bg-slate-700/50';
-            if (file.type && file.type.includes('image')) {
+
+            // Safety check for file type
+            const fType = file.type || '';
+
+            if (fType.includes('image')) {
                 icon = 'image';
                 color = 'text-blue-500 bg-blue-50 dark:bg-blue-900/20';
             }
-            else if (file.type && file.type.includes('pdf')) {
+            else if (fType.includes('pdf')) {
                 icon = 'picture_as_pdf';
                 color = 'text-red-500 bg-red-50 dark:bg-red-900/20';
             }
@@ -844,7 +853,7 @@ async function showTransferProgressUI(files, deviceCount, isReceiver = false, tr
         }).join('');
     }
 
-    // 3. Render Mesh
+    // 4. Render Mesh
     const meshContainer = overlay.querySelector('#mesh-network-view');
     if (meshContainer) {
         renderMeshNetwork(deviceCount || 1, meshContainer);
