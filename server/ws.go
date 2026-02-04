@@ -79,21 +79,21 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 				sendWS(mUser.Conn, ERROR, "db failed to save your changes")
 				continue
 			}
-			
+
 			// Update the user's discoverable status in memory
 			mUser.User.IsDiscoverable = n
-			
+
 			// Refresh the cached user list and broadcast to all connected clients
 			// Hold write lock for entire operation to ensure atomicity
 			s.MUserMu.Lock()
 			CacheDiscoverableUser(s)
-			
+
 			// Broadcast updated user list to all connected clients
 			for _, connectedUser := range s.MUser {
 				sendWS(connectedUser.Conn, USER_SHARE_LIST, s.CachedUser)
 			}
 			s.MUserMu.Unlock()
-			
+
 			sendWS(mUser.Conn, CONFIG_DISCOVERABLE, "success")
 			continue
 		case START_SHARING:
@@ -339,6 +339,20 @@ func HandleWS(s *Server, mUser *ManagedUser) {
 					TransactionID:   data.TransactionID,
 					SenderPublicKey: mUser.MinUser.PublicKey,
 				})
+
+				// Langsung kirim START_TRANSACTION ke receiver yang baru accept
+				// Ini mengatasi race condition ketika receiver accept setelah
+				// sender sudah mengirim START_TRANSACTION sebelumnya
+				payload := struct {
+					TransactionID string      `json:"transaction_id"`
+					Sender        string      `json:"sender"`
+					Files         []*FileInfo `json:"files"`
+				}{
+					TransactionID: tx.ID,
+					Sender:        tx.Sender.MinUser.Username,
+					Files:         tx.Files,
+				}
+				sendWS(mUser.Conn, START_TRANSACTION, payload)
 			} else {
 				// Notify sender about decline
 				sendWS(tx.Sender.Conn, TRANSACTION_SHARE_ACCEPT, struct {
